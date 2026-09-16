@@ -2,10 +2,10 @@ import UploadModal from "../components/UploadModal"
 import { useState } from "react"
 
 const stats = [
-  ["Total Activities", "1,000"],
-  ["On Track", "870"],
-  ["Delayed", "82"],
-  ["Needs Review", "31"],
+  ["Activities Tracked", "1,000"],
+  ["Reports Pending Verification", "31"],
+  ["Unmatched Activities", "18"],
+  ["High-Risk Activities", "12"],
 ]
 
 const progressData = [
@@ -72,7 +72,7 @@ const Dashboard = () => {
         </span>
       </div>
 
-      {/* Stats */}
+      {/* Dashboard Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
         {stats.map(([label, value]) => (
           <div
@@ -316,6 +316,45 @@ const Dashboard = () => {
               )
             })}
           </svg>
+        </div>
+      </div>
+
+      {/* Recent Field Reports */}
+      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white">
+              Recent Field Reports
+            </h3>
+            <p className="text-gray-400 text-sm mt-1">
+              Latest execution updates received from site
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {[
+            ["FR-1023", "Compressor Foundation", "65%", "Processed", "94%"],
+            ["FR-1031", "Compressor Foundation", "65%", "Needs Review", "81%"],
+            ["FR-1042", "Main Piping Installation", "48%", "Processed", "89%"],
+          ].map(([id, activity, progress, status, confidence]) => (
+            <div
+              key={id}
+              className="grid grid-cols-[110px_1fr_80px_120px_70px] gap-3 items-center p-4 bg-[#10151c] rounded-lg"
+            >
+              <span className="text-sm text-gray-300">{id}</span>
+              <span className="text-sm text-white">{activity}</span>
+              <span className="text-sm text-gray-300">{progress}</span>
+              <span
+                className={`text-sm font-medium ${
+                  status === "Needs Review" ? "text-yellow-400" : "text-green-400"
+                }`}
+              >
+                {status}
+              </span>
+              <span className="text-sm text-gray-400">{confidence}</span>
+            </div>
+          ))}
         </div>
       </div>
 

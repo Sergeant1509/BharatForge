@@ -6,6 +6,7 @@ import Activities from "./pages/Activities"
 import Reports from "./pages/Reports"
 import Verification from "./pages/Verification"
 import ActivityDetails from "./pages/ActivityDetails"
+import AuditTrail from "./pages/AuditTrail"
 
 const App = () => {
   return  (
@@ -20,6 +21,7 @@ const App = () => {
             <Route path="/activities" element={<Activities />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/verification" element={<Verification />} />
+            <Route path="/audit-trail" element={<AuditTrail />} />
             <Route path="/activity/A103" element={<ActivityDetails />} />
           </Routes>
       </main>

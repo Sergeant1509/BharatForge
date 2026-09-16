@@ -7,6 +7,7 @@ const menu = [
   ["Activities", "/activities"],
   ["Field Reports", "/reports"],
   ["Verification", "/verification"],
+  ["Audit Trail", "/audit-trail"],
 ]
 
 const Sidebar = () => {
