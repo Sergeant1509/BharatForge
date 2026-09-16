@@ -12,12 +12,8 @@
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-<<<<<<< HEAD
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1"
-=======
-    "react-router-dom": "^7.18.4"
->>>>>>> b3e327f73a6bf18db5995553b517a4a1c1d13254
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
