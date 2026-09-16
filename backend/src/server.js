@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./config/db.js";
 import projectsRouter from "./routes/projects.js";
+import fieldReportsRouter from "./routes/fieldReports.js";
 
 dotenv.config();
 
@@ -11,7 +12,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/api", (req, res) => {
+    res.json({
+        success: true,
+        message: "BharatForge API is running",
+        endpoints: {
+            health: "/api/health",
+            projects: "/api/projects",
+            activities: "/api/activities",
+            fieldReports: "/api/field-reports"
+        }
+    });
+});
+
 app.use("/api/projects", projectsRouter);
+app.use("/api/field-reports", fieldReportsRouter);
 
 // Root
 app.get("/", (req, res) => {
