@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-
 import pool from "./config/db.js";
+import projectsRouter from "./routes/projects.js";
 
 dotenv.config();
 
@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/projects", projectsRouter);
 
 // Root
 app.get("/", (req, res) => {
