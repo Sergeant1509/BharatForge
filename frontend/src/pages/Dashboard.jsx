@@ -1,3 +1,6 @@
+import UploadModal from "../components/UploadModal"
+import { useState } from "react"
+
 const stats = [
   ["Total Activities", "1,000"],
   ["On Track", "870"],
@@ -43,6 +46,8 @@ const inputSources = [
 ]
 
 const Dashboard = () => {
+  const [uploadType, setUploadType] = useState(null)
+  const [uploadedFiles, setUploadedFiles] = useState({})
   return (
     <div className="pb-10">
 
@@ -147,6 +152,7 @@ const Dashboard = () => {
             <button
               key={source.title}
               type="button"
+              onClick={() => setUploadType(source.title)}
               className="text-left bg-[#10151c] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
             >
               <div className="flex items-start justify-between">
@@ -168,7 +174,19 @@ const Dashboard = () => {
               <p className="text-xs text-gray-500 mt-4">
                 {source.formats}
               </p>
+             {uploadedFiles[source.title] && (
+              <div className="mt-3">
+                <p className="text-xs text-green-400">
+                  ✓ Uploaded
+                </p>
+
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {uploadedFiles[source.title]}
+                </p>
+              </div>
+            )}
             </button>
+            
           ))}
         </div>
       </div>
@@ -342,6 +360,37 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      <UploadModal
+  open={uploadType !== null}
+  onClose={() => setUploadType(null)}
+  title={`Upload ${uploadType || ""}`}
+  description={
+    uploadType === "Schedule"
+      ? "Import Primavera / P6 schedule"
+      : uploadType === "DPR / Field Reports"
+      ? "Upload daily site execution reports"
+      : uploadType === "Progress & Materials"
+      ? "Import progress and material data"
+      : "Upload supporting photos or documents"
+  }
+  accept={
+    uploadType === "Schedule"
+      ? ".xer,.xml,.xlsx,.xls"
+      : uploadType === "DPR / Field Reports"
+      ? ".pdf,.doc,.docx,.xlsx,.xls"
+      : uploadType === "Progress & Materials"
+      ? ".xlsx,.xls,.csv"
+      : "image/*,.pdf"
+  }
+  onFileSelect={(file) => {
+  setUploadedFiles((prev) => ({
+    ...prev,
+    [uploadType]: file.name,
+  }))
+
+  setUploadType(null)
+}}
+/>
     </div>
   )
 }
