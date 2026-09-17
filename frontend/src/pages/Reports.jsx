@@ -117,6 +117,7 @@ const Reports = () => {
 
   const [showForm, setShowForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
+  const [draggingType, setDraggingType] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -323,6 +324,36 @@ const Reports = () => {
     }
   }
 
+  const handleDragOver = (e, sourceType) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setDraggingType(sourceType)
+}
+
+const handleDragLeave = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setDraggingType(null)
+}
+
+const handleDrop = (e, sourceType) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  setDraggingType(null)
+
+  const file = e.dataTransfer.files?.[0]
+
+  if (!file) return
+
+  setSelectedFile(file)
+
+  setForm((prev) => ({
+    ...prev,
+    sourceType,
+  }))
+}
+
 
   // ========================================
   // FILE SELECTION
@@ -411,7 +442,20 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           {/* Daily Report */}
-          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
+          <label
+            onDragOver={(e) =>
+              handleDragOver(e, "Daily Report")
+            }
+            onDragLeave={handleDragLeave}
+            onDrop={(e) =>
+              handleDrop(e, "Daily Report")
+            }
+            className={`text-left bg-[#151b24] border rounded-xl p-5 transition cursor-pointer ${
+              draggingType === "Daily Report"
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[#252d38] hover:bg-[#1b2430] hover:border-[#3a4655]"
+            }`}
+          >
 
             <div className="flex items-start justify-between">
 
@@ -468,7 +512,20 @@ const Reports = () => {
 
 
           {/* Spreadsheet */}
-          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
+          <label
+            onDragOver={(e) =>
+              handleDragOver(e, "Spreadsheet")
+            }
+            onDragLeave={handleDragLeave}
+            onDrop={(e) =>
+              handleDrop(e, "Spreadsheet")
+            }
+            className={`text-left bg-[#151b24] border rounded-xl p-5 transition cursor-pointer ${
+              draggingType === "Spreadsheet"
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-[#252d38] hover:bg-[#1b2430] hover:border-[#3a4655]"
+            }`}
+          >
 
             <div className="flex items-start justify-between">
 

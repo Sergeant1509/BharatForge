@@ -8,13 +8,22 @@ import matchingRouter from "./routes/matching.js";
 import verificationRouter from "./routes/verification.js";
 import analyticsRouter from "./routes/analytics.js";
 import auditTrailRouter from "./routes/auditTrail.js";
+import cookieParser from "cookie-parser"
+import authRouter from "./routes/auth.js"
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+)
+
+app.use(express.json())
+app.use(cookieParser())
 
 
 // ========================================
@@ -41,6 +50,8 @@ app.get("/api", (req, res) => {
 // ========================================
 // ROUTES
 // ========================================
+
+app.use("/api/auth", authRouter)
 
 app.use("/api/projects", projectsRouter);
 app.use("/api/field-reports", fieldReportsRouter);

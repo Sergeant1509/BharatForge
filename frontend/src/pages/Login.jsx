@@ -11,27 +11,53 @@ const Login = () => {
 
   const [error, setError] = useState("")
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+  e.preventDefault()
 
-    setError("")
+  setError("")
 
-    if (!form.identifier || !form.password) {
-      setError("Please enter email/mobile number and password.")
+  if (!form.identifier || !form.password) {
+    setError("Please enter email/mobile number and password.")
+    return
+  }
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          identifier: form.identifier,
+          password: form.password,
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      setError(data.message || "Login failed.")
       return
     }
 
-    localStorage.setItem("bharatforge_logged_in", "true")
     localStorage.setItem(
       "bharatforge_user",
-      JSON.stringify({
-        identifier: form.identifier,
-        name: "BharatForge User",
-      })
+      JSON.stringify(data.user)
     )
 
     navigate("/")
+  } catch (err) {
+    console.error("Login error:", err)
+
+    setError(
+      "Unable to connect to the server. Please try again."
+    )
   }
+}
 
   return (
     <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center px-4">

@@ -46,9 +46,9 @@ const Sidebar = () => {
 
         <div className="flex items-center gap-3">
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg ">
             <span className="font-bold text-white">
-              B
+             <img src="/icon.jpeg" className="rounded-xl" />
             </span>
           </div>
 
@@ -250,9 +250,9 @@ const Sidebar = () => {
 
         <div className="flex h-20 items-center gap-3 border-b border-[#252d38] px-6">
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl">
             <span className="text-lg font-bold text-white">
-              B
+              <img src="/icon.jpeg" className="rounded-xl" />
             </span>
           </div>
 

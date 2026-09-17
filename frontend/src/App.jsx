@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom"
+import { useEffect, useState } from "react"
 
 import Sidebar from "./components/Sidebar"
 import Login from "./pages/Login"
@@ -18,8 +19,39 @@ import ActivityDetails from "./pages/ActivityDetails"
 import AuditTrail from "./pages/AuditTrail"
 
 const ProtectedLayout = ({ children }) => {
-  const isLoggedIn =
-    localStorage.getItem("bharatforge_logged_in") === "true"
+  const [loading, setLoading] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/auth/me",
+          {
+            credentials: "include",
+          }
+        )
+
+        if (response.ok) {
+          setIsLoggedIn(true)
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center">
+        Checking authentication...
+      </div>
+    )
+  }
 
   if (!isLoggedIn) {
     return <Navigate to="/login" replace />
