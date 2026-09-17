@@ -19,13 +19,15 @@ const initialProjects = [
           {
             id: "A103",
             name: "Compressor Foundation",
-            description: "Construction and reinforcement of compressor foundation",
+            description:
+              "Construction and reinforcement of compressor foundation",
             progress: "65%",
           },
           {
             id: "A118",
             name: "Equipment Foundation",
-            description: "Civil foundation works for process equipment",
+            description:
+              "Civil foundation works for process equipment",
             progress: "72%",
           },
         ],
@@ -38,13 +40,15 @@ const initialProjects = [
           {
             id: "A221",
             name: "Main Piping Installation",
-            description: "Installation of main process piping",
+            description:
+              "Installation of main process piping",
             progress: "48%",
           },
           {
             id: "A245",
             name: "Pipeline Pressure Testing",
-            description: "Hydrostatic pressure testing of pipelines",
+            description:
+              "Hydrostatic pressure testing of pipelines",
             progress: "35%",
           },
         ],
@@ -57,13 +61,15 @@ const initialProjects = [
           {
             id: "A417",
             name: "Electrical Works",
-            description: "Electrical cable installation and termination",
+            description:
+              "Electrical cable installation and termination",
             progress: "72%",
           },
           {
             id: "A429",
             name: "Equipment Testing",
-            description: "Testing of electrical equipment and systems",
+            description:
+              "Testing of electrical equipment and systems",
             progress: "54%",
           },
         ],
@@ -76,13 +82,15 @@ const initialProjects = [
           {
             id: "A501",
             name: "Instrument Installation",
-            description: "Installation of field instruments",
+            description:
+              "Installation of field instruments",
             progress: "61%",
           },
           {
             id: "A517",
             name: "Instrument Calibration",
-            description: "Calibration and loop checking of instruments",
+            description:
+              "Calibration and loop checking of instruments",
             progress: "42%",
           },
         ],
@@ -95,13 +103,15 @@ const initialProjects = [
           {
             id: "A601",
             name: "Safety Inspection",
-            description: "Daily construction safety inspection",
+            description:
+              "Daily construction safety inspection",
             progress: "88%",
           },
           {
             id: "A615",
             name: "Permit Compliance",
-            description: "Permit and safety compliance verification",
+            description:
+              "Permit and safety compliance verification",
             progress: "91%",
           },
         ],
@@ -173,24 +183,35 @@ const Projects = () => {
   const getFilteredHierarchy = (project) => {
     return project.activityHierarchy
       .filter((l5) => {
-        if (discipline !== "All" && l5.discipline !== discipline) {
+        if (
+          discipline !== "All" &&
+          l5.discipline !== discipline
+        ) {
           return false
         }
 
         return true
       })
       .map((l5) => {
-        const filteredChildren = l5.children.filter((activity) => {
-          const query = search.toLowerCase().trim()
+        const filteredChildren = l5.children.filter(
+          (activity) => {
+            const query = search.toLowerCase().trim()
 
-          if (!query) return true
+            if (!query) return true
 
-          return (
-            activity.id.toLowerCase().includes(query) ||
-            activity.name.toLowerCase().includes(query) ||
-            activity.description.toLowerCase().includes(query)
-          )
-        })
+            return (
+              activity.id
+                .toLowerCase()
+                .includes(query) ||
+              activity.name
+                .toLowerCase()
+                .includes(query) ||
+              activity.description
+                .toLowerCase()
+                .includes(query)
+            )
+          }
+        )
 
         return {
           ...l5,
@@ -201,52 +222,112 @@ const Projects = () => {
   }
 
   return (
-    <div className="pb-10">
+    <div className="w-full pb-10">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-white">
+      {/* =========================
+          HEADER
+      ========================== */}
+
+      <div
+        className="
+          flex flex-col gap-4
+          sm:flex-row sm:items-center
+          sm:justify-between
+        "
+      >
+        <div className="min-w-0">
+          <h2
+            className="
+              text-xl font-semibold text-white
+              sm:text-2xl
+            "
+          >
             Projects
           </h2>
 
-          <p className="text-gray-400 mt-2">
+          <p className="mt-1 text-sm text-gray-400 sm:mt-2">
             Project and schedule overview
           </p>
         </div>
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+          className="
+            w-full
+            rounded-lg
+            bg-blue-600
+            px-4 py-2.5
+            text-sm
+            text-white
+            transition
+            hover:bg-blue-700
+            sm:w-auto
+            sm:shrink-0
+          "
         >
           {showForm ? "Close" : "+ New Project"}
         </button>
       </div>
 
-      {/* New Project */}
+
+      {/* =========================
+          NEW PROJECT FORM
+      ========================== */}
+
       {showForm && (
         <form
           onSubmit={submitProject}
-          className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6"
+          className="
+            mt-6
+            rounded-xl
+            border border-[#252d38]
+            bg-[#151b24]
+            p-4
+            sm:mt-8
+            sm:p-6
+          "
         >
-          <h3 className="text-lg font-semibold text-white">
+          <h3 className="text-base font-semibold text-white sm:text-lg">
             Create New Project
           </h3>
 
-          <p className="text-gray-400 text-sm mt-1">
-            Start a project by providing its basic information and schedule.
+          <p className="mt-1 text-xs text-gray-400 sm:text-sm">
+            Start a project by providing its basic information
+            and schedule.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-
+          <div
+            className="
+              mt-5
+              grid
+              grid-cols-1
+              gap-3
+              sm:gap-4
+              md:grid-cols-2
+              lg:grid-cols-3
+            "
+          >
             <input
               required
               placeholder="Project Code"
               value={form.code}
               onChange={(e) =>
-                setForm({ ...form, code: e.target.value })
+                setForm({
+                  ...form,
+                  code: e.target.value,
+                })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
 
             <input
@@ -254,9 +335,22 @@ const Projects = () => {
               placeholder="Project Name"
               value={form.name}
               onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
+                setForm({
+                  ...form,
+                  name: e.target.value,
+                })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
 
             <input
@@ -264,16 +358,39 @@ const Projects = () => {
               placeholder="Location"
               value={form.location}
               onChange={(e) =>
-                setForm({ ...form, location: e.target.value })
+                setForm({
+                  ...form,
+                  location: e.target.value,
+                })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+                md:col-span-2
+                lg:col-span-1
+              "
             />
-
           </div>
 
+
           {/* Schedule */}
+
           <div className="mt-5">
-            <div className="flex items-center justify-between mb-2">
+            <div
+              className="
+                mb-2
+                flex flex-col gap-1
+                sm:flex-row sm:items-center
+                sm:justify-between
+              "
+            >
               <label className="text-sm text-gray-300">
                 Project Schedule
               </label>
@@ -293,285 +410,529 @@ const Projects = () => {
                   schedule: e.target.files[0],
                 })
               }
-              className="w-full bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-sm text-gray-400"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-2.5
+                text-xs
+                text-gray-400
+                sm:p-3
+                sm:text-sm
+              "
             />
 
-            <p className="text-xs text-gray-600 mt-2">
-              Primavera/P6 schedule or supported spreadsheet format.
+            <p className="mt-2 text-[11px] text-gray-600 sm:text-xs">
+              Primavera/P6 schedule or supported spreadsheet
+              format.
             </p>
           </div>
 
           <button
             type="submit"
-            className="mt-6 px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition"
+            className="
+              mt-5
+              w-full
+              rounded-lg
+              bg-green-600
+              px-5 py-2.5
+              text-sm
+              text-white
+              transition
+              hover:bg-green-700
+              sm:w-auto
+              sm:mt-6
+            "
           >
             Create Project
           </button>
         </form>
       )}
 
-      {/* Search + Filters */}
-      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-5">
 
-        <div className="flex flex-col lg:flex-row gap-4">
+      {/* =========================
+          SEARCH + FILTERS
+      ========================== */}
 
-          {/* Search */}
-          <div className="flex-1">
+      <div
+        className="
+          mt-6
+          rounded-xl
+          border border-[#252d38]
+          bg-[#151b24]
+          p-4
+          sm:mt-8
+          sm:p-5
+        "
+      >
+        <div
+          className="
+            flex
+            flex-col
+            gap-3
+            lg:flex-row
+            lg:gap-4
+          "
+        >
+          <div className="min-w-0 flex-1">
             <input
               type="text"
               placeholder="Search Activity ID or description..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#10151c] border border-[#252d38] rounded-lg px-4 py-3 text-white placeholder-gray-500 outline-none focus:border-blue-500"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                px-4 py-3
+                text-sm
+                text-white
+                placeholder-gray-500
+                outline-none
+                focus:border-blue-500
+              "
             />
           </div>
 
-          {/* Discipline */}
           <select
             value={discipline}
-            onChange={(e) => setDiscipline(e.target.value)}
-            className="bg-[#10151c] border border-[#252d38] rounded-lg px-4 py-3 text-gray-300 outline-none"
+            onChange={(e) =>
+              setDiscipline(e.target.value)
+            }
+            className="
+              w-full
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              px-4 py-3
+              text-sm
+              text-gray-300
+              outline-none
+              lg:w-auto
+              lg:min-w-45
+            "
           >
             {disciplines.map((item) => (
               <option key={item} value={item}>
-                {item === "All" ? "All Disciplines" : item}
+                {item === "All"
+                  ? "All Disciplines"
+                  : item}
               </option>
             ))}
           </select>
-
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-4">
+
+        {/* Filter buttons */}
+
+        <div
+          className="
+            mt-4
+            flex
+            gap-2
+            overflow-x-auto
+            pb-1
+            scrollbar-hide
+          "
+        >
           {disciplines.map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => setDiscipline(item)}
-              className={`px-3 py-1.5 rounded-lg text-xs transition ${
-                discipline === item
-                  ? "bg-blue-600 text-white"
-                  : "bg-[#10151c] border border-[#252d38] text-gray-400 hover:text-white"
-              }`}
+              className={`
+                shrink-0
+                rounded-lg
+                px-3 py-1.5
+                text-xs
+                transition
+                ${
+                  discipline === item
+                    ? "bg-blue-600 text-white"
+                    : "border border-[#252d38] bg-[#10151c] text-gray-400 hover:text-white"
+                }
+              `}
             >
               {item}
             </button>
           ))}
         </div>
-
       </div>
 
-      {/* Project List */}
-      <div className="mt-8 grid grid-cols-1 gap-4">
+
+      {/* =========================
+          PROJECT LIST
+      ========================== */}
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8">
 
         {projects.map((project) => (
           <div
             key={project.id}
-            className="bg-[#151b24] border border-[#252d38] rounded-xl p-6"
+            className="
+              overflow-hidden
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              sm:p-6
+            "
           >
 
-            {/* Project Header */}
-            <div className="flex items-start justify-between">
+            {/* =========================
+                PROJECT HEADER
+            ========================== */}
 
-              <div>
-                <p className="text-xl font-semibold text-white">
+            <div
+              className="
+                flex
+                flex-col
+                gap-3
+                sm:flex-row
+                sm:items-start
+                sm:justify-between
+              "
+            >
+              <div className="min-w-0">
+                <p
+                  className="
+                    wrap-break-word
+                    text-lg
+                    font-semibold
+                    text-white
+                    sm:text-xl
+                  "
+                >
                   {project.name}
                 </p>
 
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="mt-1 text-xs text-gray-500 sm:text-sm">
                   {project.id}
                 </p>
               </div>
 
               <span
-                className={`text-sm ${
-                  project.status === "Active"
-                    ? "text-green-400"
-                    : "text-yellow-400"
-                }`}
+                className={`
+                  self-start
+                  rounded-full
+                  border
+                  px-2.5 py-1
+                  text-xs
+                  ${
+                    project.status === "Active"
+                      ? "border-green-900/50 text-green-400"
+                      : "border-yellow-900/50 text-yellow-400"
+                  }
+                `}
               >
                 {project.status}
               </span>
-
             </div>
 
-            {/* Project Details */}
-            <div className="grid grid-cols-3 gap-4 mt-8">
 
-              <div>
-                <p className="text-gray-400 text-sm">
+            {/* =========================
+                PROJECT DETAILS
+            ========================== */}
+
+            <div
+              className="
+                mt-6
+                grid
+                grid-cols-2
+                gap-4
+                sm:mt-8
+                sm:grid-cols-3
+              "
+            >
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 sm:text-sm">
                   Location
                 </p>
 
-                <p className="text-white mt-1">
+                <p className="mt-1 truncate text-sm text-white sm:text-base">
                   {project.location}
                 </p>
               </div>
 
               <div>
-                <p className="text-gray-400 text-sm">
+                <p className="text-xs text-gray-400 sm:text-sm">
                   Progress
                 </p>
 
-                <p className="text-white mt-1">
+                <p className="mt-1 text-sm text-white sm:text-base">
                   {project.progress}
                 </p>
               </div>
 
-              <div>
-                <p className="text-gray-400 text-sm">
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-xs text-gray-400 sm:text-sm">
                   Activities
                 </p>
 
-                <p className="text-white mt-1">
+                <p className="mt-1 text-sm text-white sm:text-base">
                   {project.activities}
                 </p>
               </div>
-
             </div>
 
-            {/* Schedule */}
-            <div className="mt-6 pt-5 border-t border-[#252d38]">
 
-              <p className="text-xs text-gray-500">
+            {/* =========================
+                SCHEDULE
+            ========================== */}
+
+            <div
+              className="
+                mt-5
+                border-t border-[#252d38]
+                pt-4
+                sm:mt-6
+                sm:pt-5
+              "
+            >
+              <p className="text-[10px] font-medium text-gray-500 sm:text-xs">
                 SCHEDULE
               </p>
 
-              <p className="text-gray-300 text-sm mt-2">
+              <p className="mt-1.5 break-all text-xs text-gray-300 sm:mt-2 sm:text-sm">
                 {project.schedule}
               </p>
-
             </div>
 
-            {/* Activity Hierarchy */}
-            <div className="mt-8 pt-6 border-t border-[#252d38]">
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-semibold text-white">
+            {/* =========================
+                ACTIVITY HIERARCHY
+            ========================== */}
+
+            <div
+              className="
+                mt-6
+                border-t border-[#252d38]
+                pt-5
+                sm:mt-8
+                sm:pt-6
+              "
+            >
+
+              <div
+                className="
+                  flex
+                  flex-col
+                  gap-2
+                  sm:flex-row
+                  sm:items-center
+                  sm:justify-between
+                "
+              >
+                <div className="min-w-0">
+                  <p
+                    className="
+                      text-base
+                      font-semibold
+                      text-white
+                      sm:text-lg
+                    "
+                  >
                     Schedule Activity Hierarchy
                   </p>
 
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="mt-1 text-xs text-gray-500 sm:text-sm">
                     L5 WBS → L6 Activities
                   </p>
                 </div>
 
-                <span className="text-xs text-gray-500">
+                <span className="text-[10px] text-gray-500 sm:text-xs">
                   Planning Reference
                 </span>
               </div>
 
-              <div className="mt-5 space-y-3">
 
-                {getFilteredHierarchy(project).map((l5) => {
-                  const key = `${project.id}-${l5.id}`
-                  const isExpanded = expandedL5[key]
+              <div className="mt-4 space-y-3 sm:mt-5">
 
-                  return (
-                    <div
-                      key={l5.id}
-                      className="border border-[#252d38] rounded-lg overflow-hidden"
-                    >
+                {getFilteredHierarchy(project).map(
+                  (l5) => {
+                    const key = `${project.id}-${l5.id}`
+                    const isExpanded =
+                      expandedL5[key]
 
-                      {/* L5 */}
-                      <button
-                        type="button"
-                        onClick={() => toggleL5(project.id, l5.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-[#10151c] hover:bg-[#1b2430] transition text-left"
+                    return (
+                      <div
+                        key={l5.id}
+                        className="
+                          overflow-hidden
+                          rounded-lg
+                          border border-[#252d38]
+                        "
                       >
 
-                        <div className="flex items-center gap-3">
+                        {/* L5 */}
 
-                          <span className="text-gray-500">
-                            {isExpanded ? "▼" : "▶"}
-                          </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleL5(
+                              project.id,
+                              l5.id
+                            )
+                          }
+                          className="
+                            flex
+                            w-full
+                            items-center
+                            justify-between
+                            gap-3
+                            bg-[#10151c]
+                            px-3 py-3
+                            text-left
+                            transition
+                            hover:bg-[#1b2430]
+                            sm:px-4
+                          "
+                        >
 
-                          <div>
-                            <p className="text-sm font-medium text-white">
-                              {l5.id}
-                            </p>
+                          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
 
-                            <p className="text-sm text-gray-300 mt-0.5">
-                              {l5.name}
-                            </p>
+                            <span className="shrink-0 text-xs text-gray-500">
+                              {isExpanded
+                                ? "▼"
+                                : "▶"}
+                            </span>
+
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-white sm:text-sm">
+                                {l5.id}
+                              </p>
+
+                              <p className="mt-0.5 wrap-break-word text-xs text-gray-300 sm:text-sm">
+                                {l5.name}
+                              </p>
+                            </div>
+
                           </div>
 
-                        </div>
+                          <span className="shrink-0 text-[10px] text-gray-400 sm:text-xs">
+                            {l5.discipline}
+                          </span>
 
-                        <span className="text-xs text-gray-400">
-                          {l5.discipline}
-                        </span>
+                        </button>
 
-                      </button>
 
-                      {/* L6 */}
-                      {isExpanded && (
-                        <div className="divide-y divide-[#252d38]">
+                        {/* L6 */}
 
-                          {l5.children.map((activity) => (
-                            <div
-                              key={activity.id}
-                              className="px-5 py-4 bg-[#151b24] hover:bg-[#1b2430] transition"
-                            >
+                        {isExpanded && (
+                          <div className="divide-y divide-[#252d38]">
 
-                              <div className="flex items-start justify-between gap-4">
+                            {l5.children.map(
+                              (activity) => (
+                                <div
+                                  key={activity.id}
+                                  className="
+                                    bg-[#151b24]
+                                    px-3 py-4
+                                    transition
+                                    hover:bg-[#1b2430]
+                                    sm:px-5
+                                  "
+                                >
 
-                                <div>
-                                  <div className="flex items-center gap-3">
+                                  <div
+                                    className="
+                                      flex
+                                      flex-col
+                                      gap-4
+                                      sm:flex-row
+                                      sm:items-start
+                                      sm:justify-between
+                                    "
+                                  >
 
-                                    <span className="text-xs text-blue-400 font-medium">
-                                      L6
-                                    </span>
+                                    <div className="min-w-0">
 
-                                    <span className="text-sm font-medium text-white">
-                                      {activity.id}
-                                    </span>
+                                      <div className="flex items-center gap-2.5 sm:gap-3">
+
+                                        <span className="text-[10px] font-medium text-blue-400 sm:text-xs">
+                                          L6
+                                        </span>
+
+                                        <span className="text-xs font-medium text-white sm:text-sm">
+                                          {activity.id}
+                                        </span>
+
+                                      </div>
+
+                                      <p className="mt-2 wrap-break-word text-sm text-gray-300">
+                                        {activity.name}
+                                      </p>
+
+                                      <p className="mt-1 wrap-break-word text-xs leading-5 text-gray-500">
+                                        {activity.description}
+                                      </p>
+
+                                    </div>
+
+
+                                    <div
+                                      className="
+                                        flex
+                                        items-center
+                                        justify-between
+                                        border-t border-[#252d38]
+                                        pt-3
+                                        sm:block
+                                        sm:min-w-20
+                                        sm:border-0
+                                        sm:pt-0
+                                        sm:text-right
+                                      "
+                                    >
+                                      <p className="text-[10px] text-gray-500 sm:text-xs">
+                                        Progress
+                                      </p>
+
+                                      <p className="mt-0 text-sm text-white sm:mt-1">
+                                        {activity.progress}
+                                      </p>
+                                    </div>
 
                                   </div>
 
-                                  <p className="text-sm text-gray-300 mt-2">
-                                    {activity.name}
-                                  </p>
-
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {activity.description}
-                                  </p>
                                 </div>
+                              )
+                            )}
 
-                                <div className="text-right shrink-0">
+                          </div>
+                        )}
 
-                                  <p className="text-xs text-gray-500">
-                                    Progress
-                                  </p>
-
-                                  <p className="text-sm text-white mt-1">
-                                    {activity.progress}
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                            </div>
-                          ))}
-
-                        </div>
-                      )}
-
-                    </div>
-                  )
-                })}
+                      </div>
+                    )
+                  }
+                )}
 
               </div>
 
+
+              {/* Empty state */}
+
               {getFilteredHierarchy(project).length === 0 && (
-                <div className="mt-4 py-8 text-center border border-dashed border-[#252d38] rounded-lg">
-                  <p className="text-gray-400 text-sm">
+                <div
+                  className="
+                    mt-4
+                    rounded-lg
+                    border
+                    border-dashed
+                    border-[#252d38]
+                    px-4 py-8
+                    text-center
+                  "
+                >
+                  <p className="text-sm text-gray-400">
                     No activities found
                   </p>
 
-                  <p className="text-gray-600 text-xs mt-1">
-                    Try another Activity ID, description or discipline.
+                  <p className="mt-1 text-xs text-gray-600">
+                    Try another Activity ID,
+                    description or discipline.
                   </p>
                 </div>
               )}
@@ -583,19 +944,32 @@ const Projects = () => {
 
       </div>
 
-      {/* Architecture Note */}
-      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-5">
 
-        <p className="text-xs text-gray-500">
+      {/* =========================
+          ARCHITECTURE NOTE
+      ========================== */}
+
+      <div
+        className="
+          mt-6
+          rounded-xl
+          border border-[#252d38]
+          bg-[#151b24]
+          p-4
+          sm:mt-8
+          sm:p-5
+        "
+      >
+        <p className="text-[10px] font-medium text-gray-500 sm:text-xs">
           PROJECT INITIALIZATION
         </p>
 
-        <p className="text-sm text-gray-300 mt-2">
-          A project starts from its schedule. Once the schedule is
-          processed, its WBS and activities become the planning
-          reference for field execution reconciliation.
+        <p className="mt-2 text-xs leading-5 text-gray-300 sm:text-sm sm:leading-6">
+          A project starts from its schedule. Once the
+          schedule is processed, its WBS and activities
+          become the planning reference for field
+          execution reconciliation.
         </p>
-
       </div>
 
     </div>

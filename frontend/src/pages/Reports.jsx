@@ -56,7 +56,6 @@ const disciplines = [
 const Reports = () => {
   const [reports, setReports] = useState(initialReports)
   const [showForm, setShowForm] = useState(false)
-
   const [selectedFile, setSelectedFile] = useState(null)
 
   const [form, setForm] = useState({
@@ -80,7 +79,9 @@ const Reports = () => {
       sourceType: form.sourceType,
       discipline: form.discipline,
       activity: form.activityId || "Pending AI Match",
-      progress: form.progress ? `${form.progress}%` : "—",
+      progress: form.progress
+        ? `${form.progress}%`
+        : "—",
       processingStatus: "Pending",
       extractionStatus: "Pending",
       matchingStatus: "Pending",
@@ -138,17 +139,55 @@ const Reports = () => {
     setShowForm(true)
   }
 
-  return (
-    <div className="pb-10">
+  const openManualForm = () => {
+    setSelectedFile(null)
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-white">
+    setForm((prev) => ({
+      ...prev,
+      sourceType: "Manual Field Update",
+    }))
+
+    setShowForm(true)
+  }
+
+  return (
+    <div className="w-full pb-10">
+
+      {/* =========================
+          HEADER
+      ========================== */}
+
+      <div
+        className="
+          flex
+          flex-col
+          gap-4
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+        "
+      >
+        <div className="min-w-0">
+          <h2
+            className="
+              text-xl
+              font-semibold
+              text-white
+              sm:text-2xl
+            "
+          >
             Field Reports
           </h2>
 
-          <p className="text-gray-400 mt-2">
+          <p
+            className="
+              mt-1
+              text-xs
+              text-gray-400
+              sm:mt-2
+              sm:text-sm
+            "
+          >
             Capture and reconcile field execution information
           </p>
         </div>
@@ -156,52 +195,92 @@ const Reports = () => {
         <button
           type="button"
           onClick={() => {
-            setSelectedFile(null)
+            if (showForm) {
+              setShowForm(false)
+              return
+            }
 
-            setForm((prev) => ({
-              ...prev,
-              sourceType: "Manual Field Update",
-            }))
-
-            setShowForm(!showForm)
+            openManualForm()
           }}
-          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+          className="
+            w-full
+            rounded-lg
+            bg-blue-600
+            px-4
+            py-2.5
+            text-sm
+            text-white
+            transition
+            hover:bg-blue-700
+            sm:w-auto
+            sm:shrink-0
+          "
         >
           {showForm ? "Close" : "+ Add Field Update"}
         </button>
       </div>
 
-      {/* Input Sources */}
-      <div className="mt-8">
 
-        <p className="text-xs text-gray-500 mb-3">
+      {/* =========================
+          INPUT SOURCES
+      ========================== */}
+
+      <div className="mt-6 sm:mt-8">
+
+        <p className="mb-3 text-[10px] text-gray-500 sm:text-xs">
           FIELD INPUT SOURCES
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div
+          className="
+            grid
+            grid-cols-1
+            gap-3
+            md:grid-cols-3
+            md:gap-4
+          "
+        >
 
-          {/* Daily Report */}
-          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
+          {/* DAILY REPORT */}
 
-            <div className="flex items-start justify-between">
-
-              <div>
-                <p className="text-white font-medium">
+          <label
+            className="
+              cursor-pointer
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              text-left
+              transition
+              hover:border-[#3a4655]
+              hover:bg-[#1b2430]
+              sm:p-5
+            "
+          >
+            <div
+              className="
+                flex
+                items-start
+                justify-between
+                gap-3
+              "
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">
                   Daily Report
                 </p>
 
-                <p className="text-gray-400 text-sm mt-2">
+                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
                   Upload DPR / daily site execution report
                 </p>
               </div>
 
-              <span className="text-gray-500 text-lg">
+              <span className="shrink-0 text-lg text-gray-500">
                 ↑
               </span>
-
             </div>
 
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
               PDF / DOCX / XLSX
             </p>
 
@@ -221,43 +300,67 @@ const Reports = () => {
 
             {selectedFile &&
               form.sourceType === "Daily Report" && (
-                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
-
+                <div
+                  className="
+                    mt-4
+                    rounded-lg
+                    border border-[#252d38]
+                    bg-[#10151c]
+                    p-3
+                  "
+                >
                   <p className="text-xs text-green-400">
                     File selected
                   </p>
 
-                  <p className="text-xs text-gray-400 mt-1 truncate">
+                  <p className="mt-1 truncate text-xs text-gray-400">
                     {selectedFile.name}
                   </p>
-
                 </div>
               )}
-
           </label>
 
-          {/* Spreadsheet */}
-          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
 
-            <div className="flex items-start justify-between">
+          {/* SPREADSHEET */}
 
-              <div>
-                <p className="text-white font-medium">
+          <label
+            className="
+              cursor-pointer
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              text-left
+              transition
+              hover:border-[#3a4655]
+              hover:bg-[#1b2430]
+              sm:p-5
+            "
+          >
+            <div
+              className="
+                flex
+                items-start
+                justify-between
+                gap-3
+              "
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">
                   Spreadsheet
                 </p>
 
-                <p className="text-gray-400 text-sm mt-2">
+                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
                   Import structured progress or field data
                 </p>
               </div>
 
-              <span className="text-gray-500 text-lg">
+              <span className="shrink-0 text-lg text-gray-500">
                 ↑
               </span>
-
             </div>
 
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
               XLSX / XLS / CSV
             </p>
 
@@ -277,108 +380,157 @@ const Reports = () => {
 
             {selectedFile &&
               form.sourceType === "Spreadsheet" && (
-                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
-
+                <div
+                  className="
+                    mt-4
+                    rounded-lg
+                    border border-[#252d38]
+                    bg-[#10151c]
+                    p-3
+                  "
+                >
                   <p className="text-xs text-green-400">
                     File selected
                   </p>
 
-                  <p className="text-xs text-gray-400 mt-1 truncate">
+                  <p className="mt-1 truncate text-xs text-gray-400">
                     {selectedFile.name}
                   </p>
-
                 </div>
               )}
-
           </label>
 
-          {/* Manual Field Update */}
+
+          {/* MANUAL */}
+
           <button
             type="button"
-            onClick={() => {
-              setSelectedFile(null)
-
-              setForm((prev) => ({
-                ...prev,
-                sourceType: "Manual Field Update",
-              }))
-
-              setShowForm(true)
-            }}
-            className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
+            onClick={openManualForm}
+            className="
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              text-left
+              transition
+              hover:border-[#3a4655]
+              hover:bg-[#1b2430]
+              sm:p-5
+            "
           >
-
-            <div className="flex items-start justify-between">
-
-              <div>
-                <p className="text-white font-medium">
+            <div
+              className="
+                flex
+                items-start
+                justify-between
+                gap-3
+              "
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">
                   Manual Field Update
                 </p>
 
-                <p className="text-gray-400 text-sm mt-2">
+                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
                   Enter an execution update directly
                 </p>
               </div>
 
-              <span className="text-gray-500 text-lg">
+              <span className="shrink-0 text-lg text-gray-500">
                 +
               </span>
-
             </div>
 
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
               Manual Entry
             </p>
-
           </button>
 
         </div>
-
       </div>
 
-      {/* Add Field Update Form */}
+
+      {/* =========================
+          ADD FIELD UPDATE FORM
+      ========================== */}
+
       {showForm && (
         <form
           onSubmit={submitReport}
-          className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6"
+          className="
+            mt-6
+            rounded-xl
+            border border-[#252d38]
+            bg-[#151b24]
+            p-4
+            sm:mt-8
+            sm:p-6
+          "
         >
 
           <div>
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-base font-semibold text-white sm:text-lg">
               Add Field Update
             </h3>
 
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="mt-1 text-xs text-gray-400 sm:text-sm">
               Provide field execution information for BharatForge reconciliation.
             </p>
           </div>
 
-          {/* Selected File */}
-          {selectedFile && (
-            <div className="mt-5 bg-[#10151c] border border-[#252d38] rounded-lg p-4">
 
-              <p className="text-xs text-gray-500">
+          {/* SELECTED FILE */}
+
+          {selectedFile && (
+            <div
+              className="
+                mt-4
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                sm:mt-5
+                sm:p-4
+              "
+            >
+              <p className="text-[10px] text-gray-500 sm:text-xs">
                 SELECTED FILE
               </p>
 
-              <div className="flex items-center justify-between mt-2">
-
-                <p className="text-sm text-white truncate">
+              <div
+                className="
+                  mt-2
+                  flex
+                  items-center
+                  justify-between
+                  gap-3
+                "
+              >
+                <p className="min-w-0 truncate text-xs text-white sm:text-sm">
                   {selectedFile.name}
                 </p>
 
-                <span className="text-xs text-green-400 ml-4">
+                <span className="shrink-0 text-[10px] text-green-400 sm:text-xs">
                   Ready
                 </span>
-
               </div>
-
             </div>
           )}
 
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
 
+          {/* BASIC INFORMATION */}
+
+          <div
+            className="
+              mt-5
+              grid
+              grid-cols-1
+              gap-3
+              sm:mt-6
+              sm:grid-cols-2
+              lg:grid-cols-4
+            "
+          >
             <input
               required
               placeholder="Report ID"
@@ -389,7 +541,17 @@ const Reports = () => {
                   reportId: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
 
             <input
@@ -402,7 +564,17 @@ const Reports = () => {
                   date: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
 
             <select
@@ -413,7 +585,16 @@ const Reports = () => {
                   sourceType: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-gray-300
+                outline-none
+              "
             >
               {sourceTypes.map((type) => (
                 <option key={type} value={type}>
@@ -430,7 +611,16 @@ const Reports = () => {
                   discipline: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-gray-300
+                outline-none
+              "
             >
               {disciplines.map((item) => (
                 <option key={item} value={item}>
@@ -438,12 +628,21 @@ const Reports = () => {
                 </option>
               ))}
             </select>
-
           </div>
 
-          {/* Activity Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 
+          {/* ACTIVITY INFORMATION */}
+
+          <div
+            className="
+              mt-3
+              grid
+              grid-cols-1
+              gap-3
+              sm:mt-4
+              sm:grid-cols-2
+            "
+          >
             <input
               placeholder="Activity ID (optional)"
               value={form.activityId}
@@ -453,7 +652,17 @@ const Reports = () => {
                   activityId: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
 
             <input
@@ -468,12 +677,23 @@ const Reports = () => {
                   progress: e.target.value,
                 })
               }
-              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+              className="
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-3
+                text-sm
+                text-white
+                outline-none
+                focus:border-blue-500
+              "
             />
-
           </div>
 
-          {/* Execution Update */}
+
+          {/* EXECUTION UPDATE */}
+
           <textarea
             placeholder="Execution update / work description"
             value={form.executionUpdate}
@@ -484,10 +704,25 @@ const Reports = () => {
               })
             }
             rows="4"
-            className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none resize-none"
+            className="
+              mt-3
+              w-full
+              resize-none
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              p-3
+              text-sm
+              text-white
+              outline-none
+              focus:border-blue-500
+              sm:mt-4
+            "
           />
 
-          {/* Constraint */}
+
+          {/* CONSTRAINT */}
+
           <input
             placeholder="Material / constraint / observation (optional)"
             value={form.constraint}
@@ -497,12 +732,25 @@ const Reports = () => {
                 constraint: e.target.value,
               })
             }
-            className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
+            className="
+              mt-3
+              w-full
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              p-3
+              text-sm
+              text-white
+              outline-none
+              focus:border-blue-500
+              sm:mt-4
+            "
           />
 
-          {/* Evidence */}
-          <div className="mt-4">
 
+          {/* EVIDENCE */}
+
+          <div className="mt-4">
             <label className="text-sm text-gray-300">
               Supporting Evidence
             </label>
@@ -513,17 +761,44 @@ const Reports = () => {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  evidence: e.target.files?.[0] || null,
+                  evidence:
+                    e.target.files?.[0] || null,
                 })
               }
-              className="w-full mt-2 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-sm text-gray-400"
+              className="
+                mt-2
+                w-full
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-2.5
+                text-xs
+                text-gray-400
+                sm:p-3
+                sm:text-sm
+              "
             />
-
           </div>
+
+
+          {/* SUBMIT */}
 
           <button
             type="submit"
-            className="mt-6 px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition"
+            className="
+              mt-5
+              w-full
+              rounded-lg
+              bg-green-600
+              px-5
+              py-2.5
+              text-sm
+              text-white
+              transition
+              hover:bg-green-700
+              sm:mt-6
+              sm:w-auto
+            "
           >
             Submit Field Update
           </button>
@@ -531,76 +806,144 @@ const Reports = () => {
         </form>
       )}
 
-      {/* Processing Pipeline */}
-      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-        <h3 className="text-lg font-semibold text-white">
+      {/* =========================
+          PROCESSING PIPELINE
+      ========================== */}
+
+      <div
+        className="
+          mt-6
+          rounded-xl
+          border border-[#252d38]
+          bg-[#151b24]
+          p-4
+          sm:mt-8
+          sm:p-6
+        "
+      >
+        <h3 className="text-base font-semibold text-white sm:text-lg">
           Field Report Processing
         </h3>
 
-        <p className="text-gray-400 text-sm mt-1">
+        <p className="mt-1 text-xs text-gray-400 sm:text-sm">
           Each field input moves through extraction and activity matching.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 
-          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
-            <p className="text-xs text-gray-500">
+        <div
+          className="
+            mt-5
+            grid
+            grid-cols-1
+            gap-3
+            md:grid-cols-3
+            md:gap-4
+            sm:mt-6
+          "
+        >
+
+          <div
+            className="
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              p-4
+            "
+          >
+            <p className="text-[10px] text-gray-500 sm:text-xs">
               STEP 01
             </p>
 
-            <p className="text-white font-medium mt-2">
+            <p className="mt-2 text-sm font-medium text-white">
               Extraction
             </p>
 
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="mt-1 text-xs leading-5 text-gray-500">
               Convert field information into structured data.
             </p>
           </div>
 
-          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
-            <p className="text-xs text-gray-500">
+
+          <div
+            className="
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              p-4
+            "
+          >
+            <p className="text-[10px] text-gray-500 sm:text-xs">
               STEP 02
             </p>
 
-            <p className="text-white font-medium mt-2">
+            <p className="mt-2 text-sm font-medium text-white">
               Activity Matching
             </p>
 
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="mt-1 text-xs leading-5 text-gray-500">
               Map the field update to the relevant L5/L6 activity.
             </p>
           </div>
 
-          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
-            <p className="text-xs text-gray-500">
+
+          <div
+            className="
+              rounded-lg
+              border border-[#252d38]
+              bg-[#10151c]
+              p-4
+            "
+          >
+            <p className="text-[10px] text-gray-500 sm:text-xs">
               STEP 03
             </p>
 
-            <p className="text-white font-medium mt-2">
+            <p className="mt-2 text-sm font-medium text-white">
               Verification
             </p>
 
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="mt-1 text-xs leading-5 text-gray-500">
               Route uncertain or conflicting updates for review.
             </p>
           </div>
 
         </div>
-
       </div>
 
-      {/* Reports Table */}
-      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-        <div className="flex items-center justify-between">
+      {/* =========================
+          REPORT RECORDS
+      ========================== */}
 
+      <div
+        className="
+          mt-6
+          rounded-xl
+          border border-[#252d38]
+          bg-[#151b24]
+          p-4
+          sm:mt-8
+          sm:p-6
+        "
+      >
+
+        <div
+          className="
+            flex
+            flex-col
+            gap-2
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+          "
+        >
           <div>
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-base font-semibold text-white sm:text-lg">
               Field Report Records
             </h3>
 
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="mt-1 text-xs text-gray-400 sm:text-sm">
               Current execution inputs and reconciliation status
             </p>
           </div>
@@ -608,151 +951,353 @@ const Reports = () => {
           <span className="text-xs text-gray-500">
             {reports.length} Records
           </span>
-
         </div>
 
-        <div className="mt-6 overflow-x-auto">
 
-          <table className="w-full text-sm">
+        {/* DESKTOP / TABLET TABLE */}
+
+        <div className="mt-5 hidden overflow-x-auto md:block sm:mt-6">
+          <table className="w-full min-w-[1050px] text-sm">
 
             <thead>
               <tr className="border-b border-[#252d38] text-left">
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Report
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Source
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Discipline
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Date
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Activity
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Progress
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Processing
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Extraction
                 </th>
 
-                <th className="pb-3 pr-5 text-gray-500 font-medium">
+                <th className="pb-3 pr-5 font-medium text-gray-500">
                   Matching
                 </th>
 
-                <th className="pb-3 text-gray-500 font-medium">
+                <th className="pb-3 font-medium text-gray-500">
                   Confidence
                 </th>
 
               </tr>
             </thead>
 
-            <tbody>
 
+            <tbody>
               {reports.map((report) => (
                 <tr
                   key={report.id}
                   className="border-b border-[#252d38] last:border-0"
                 >
+                  <td className="py-4 pr-5 font-medium text-white">
+                    {report.id}
+                  </td>
 
-                  <td className="py-4 pr-5">
-                    <p className="text-white font-medium">
-                      {report.id}
-                    </p>
+                  <td className="py-4 pr-5 text-gray-300">
+                    {report.sourceType}
+                  </td>
+
+                  <td className="py-4 pr-5 text-gray-400">
+                    {report.discipline}
+                  </td>
+
+                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
+                    {report.date}
+                  </td>
+
+                  <td className="py-4 pr-5 text-white">
+                    {report.activity}
+                  </td>
+
+                  <td className="py-4 pr-5 text-gray-300">
+                    {report.progress}
                   </td>
 
                   <td className="py-4 pr-5">
-                    <span className="text-gray-300">
-                      {report.sourceType}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span className="text-gray-400">
-                      {report.discipline}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span className="text-gray-400">
-                      {report.date}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <p className="text-white">
-                      {report.activity}
-                    </p>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span className="text-gray-300">
-                      {report.progress}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span className={statusClass(report.processingStatus)}>
+                    <span
+                      className={statusClass(
+                        report.processingStatus
+                      )}
+                    >
                       {report.processingStatus}
                     </span>
                   </td>
 
                   <td className="py-4 pr-5">
-                    <span className={statusClass(report.extractionStatus)}>
+                    <span
+                      className={statusClass(
+                        report.extractionStatus
+                      )}
+                    >
                       {report.extractionStatus}
                     </span>
                   </td>
 
                   <td className="py-4 pr-5">
-                    <span className={statusClass(report.matchingStatus)}>
+                    <span
+                      className={statusClass(
+                        report.matchingStatus
+                      )}
+                    >
                       {report.matchingStatus}
                     </span>
                   </td>
 
-                  <td className="py-4">
-                    <span className="text-gray-300">
-                      {report.confidence}
-                    </span>
+                  <td className="py-4 text-gray-300">
+                    {report.confidence}
                   </td>
-
                 </tr>
               ))}
-
             </tbody>
 
           </table>
+        </div>
+
+
+        {/* MOBILE REPORT CARDS */}
+
+        <div className="mt-5 space-y-3 md:hidden">
+
+          {reports.map((report) => (
+            <div
+              key={report.id}
+              className="
+                rounded-lg
+                border border-[#252d38]
+                bg-[#10151c]
+                p-4
+              "
+            >
+
+              {/* Header */}
+
+              <div
+                className="
+                  flex
+                  items-start
+                  justify-between
+                  gap-3
+                "
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">
+                    {report.id}
+                  </p>
+
+                  <p className="mt-1 truncate text-xs text-gray-500">
+                    {report.activity}
+                  </p>
+                </div>
+
+                <span
+                  className={`
+                    shrink-0
+                    text-xs
+                    font-medium
+                    ${statusClass(report.matchingStatus)}
+                  `}
+                >
+                  {report.matchingStatus}
+                </span>
+              </div>
+
+
+              {/* Basic info */}
+
+              <div
+                className="
+                  mt-4
+                  grid
+                  grid-cols-2
+                  gap-3
+                  border-t border-[#252d38]
+                  pt-3
+                "
+              >
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Source
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-300">
+                    {report.sourceType}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Discipline
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-300">
+                    {report.discipline}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Date
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-400">
+                    {report.date}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Progress
+                  </p>
+
+                  <p className="mt-1 text-xs text-white">
+                    {report.progress}
+                  </p>
+                </div>
+              </div>
+
+
+              {/* Processing */}
+
+              <div
+                className="
+                  mt-4
+                  grid
+                  grid-cols-2
+                  gap-3
+                  border-t border-[#252d38]
+                  pt-3
+                "
+              >
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Processing
+                  </p>
+
+                  <p
+                    className={`
+                      mt-1
+                      text-xs
+                      ${statusClass(
+                        report.processingStatus
+                      )}
+                    `}
+                  >
+                    {report.processingStatus}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Extraction
+                  </p>
+
+                  <p
+                    className={`
+                      mt-1
+                      text-xs
+                      ${statusClass(
+                        report.extractionStatus
+                      )}
+                    `}
+                  >
+                    {report.extractionStatus}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Matching
+                  </p>
+
+                  <p
+                    className={`
+                      mt-1
+                      text-xs
+                      ${statusClass(
+                        report.matchingStatus
+                      )}
+                    `}
+                  >
+                    {report.matchingStatus}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-gray-600">
+                    Confidence
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-300">
+                    {report.confidence}
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          ))}
 
         </div>
 
       </div>
 
-      {/* Architecture Note */}
-      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-5">
 
-        <p className="text-xs text-gray-500">
+      {/* =========================
+          ARCHITECTURE NOTE
+      ========================== */}
+
+      <div
+        className="
+          mt-6
+          rounded-xl
+          border border-[#252d38]
+          bg-[#151b24]
+          p-4
+          sm:mt-8
+          sm:p-5
+        "
+      >
+        <p className="text-[10px] text-gray-500 sm:text-xs">
           RECONCILIATION PIPELINE
         </p>
 
-        <p className="text-sm text-gray-300 mt-2">
-          Field inputs are converted into structured execution data,
-          matched against the project schedule, and routed to verification
-          when the match or extracted information requires review.
+        <p
+          className="
+            mt-2
+            text-xs
+            leading-5
+            text-gray-300
+            sm:text-sm
+            sm:leading-6
+          "
+        >
+          Field inputs are converted into structured execution
+          data, matched against the project schedule, and routed
+          to verification when the match or extracted information
+          requires review.
         </p>
-
       </div>
 
     </div>
