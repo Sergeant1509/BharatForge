@@ -6,8 +6,9 @@ import {
 } from "react-router-dom"
 
 import Sidebar from "./components/Sidebar"
-
 import Login from "./pages/Login"
+import Signup from "./pages/Signup"
+
 import Dashboard from "./pages/Dashboard"
 import Projects from "./pages/Projects"
 import Activities from "./pages/Activities"
@@ -15,8 +16,6 @@ import Reports from "./pages/Reports"
 import Verification from "./pages/Verification"
 import ActivityDetails from "./pages/ActivityDetails"
 import AuditTrail from "./pages/AuditTrail"
-import Signup from "./pages/Signup"
-
 
 const ProtectedLayout = ({ children }) => {
   const isLoggedIn =
@@ -28,7 +27,6 @@ const ProtectedLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-[#11161d] text-white">
-
       <Sidebar />
 
       <main
@@ -47,27 +45,6 @@ const ProtectedLayout = ({ children }) => {
       >
         {children}
       </main>
-
-    </div>
-  )
-}
-
-const SignupPlaceholder = () => {
-  return (
-    <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center px-4">
-
-      <div className="w-full max-w-md rounded-2xl border border-[#252d38] bg-[#151b24] p-8 text-center">
-
-        <h1 className="text-xl font-semibold">
-          Sign Up
-        </h1>
-
-        <p className="mt-2 text-sm text-gray-400">
-          Signup page will be added next.
-        </p>
-
-      </div>
-
     </div>
   )
 }
@@ -75,10 +52,9 @@ const SignupPlaceholder = () => {
 const App = () => {
   return (
     <BrowserRouter>
-
       <Routes>
 
-        {/* PUBLIC */}
+        {/* PUBLIC ROUTES */}
 
         <Route
           path="/login"
@@ -90,8 +66,7 @@ const App = () => {
           element={<Signup />}
         />
 
-
-        {/* PROTECTED */}
+        {/* PROTECTED ROUTES */}
 
         <Route
           path="/"
@@ -148,14 +123,13 @@ const App = () => {
         />
 
         <Route
-          path="/activity/A103"
+          path="/activity/:id"
           element={
             <ProtectedLayout>
               <ActivityDetails />
             </ProtectedLayout>
           }
         />
-
 
         {/* FALLBACK */}
 
@@ -165,7 +139,6 @@ const App = () => {
         />
 
       </Routes>
-
     </BrowserRouter>
   )
 }

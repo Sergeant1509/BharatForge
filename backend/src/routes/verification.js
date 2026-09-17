@@ -4,10 +4,13 @@ import { matchActivity } from "../services/activityMatcher.js";
 
 const router = express.Router();
 
+
 /*
+========================================================
 GET /api/verification
 
 Returns field reports that need planner verification.
+========================================================
 */
 
 router.get("/", async (req, res) => {
@@ -97,34 +100,44 @@ router.get("/", async (req, res) => {
 
 
 /*
+========================================================
 PUT /api/verification/:id
 
 Planner verifies a field report and selects
 the correct activity.
 
-After verification:
-1. Field report is marked VERIFIED.
-2. Linked activity is updated.
-3. Audit log is created.
+Supported actions:
+APPROVE
+CHANGE_MATCH
+REJECT
 
-All three operations happen inside
-one PostgreSQL transaction.
+Optional:
+reported_progress
+
+All database changes happen inside one transaction.
+========================================================
 */
 
 router.put("/:id", async (req, res) => {
+
     const client = await pool.connect();
 
     try {
+
         const { id } = req.params;
 
         const {
             activity_id,
             action,
-            verified_by
+            verified_by,
+            reported_progress
         } = req.body;
 
+
         /*
-        Validate action.
+        ------------------------------------------------
+        Validate action
+        ------------------------------------------------
         */
 
         if (!action) {
@@ -148,44 +161,83 @@ router.put("/:id", async (req, res) => {
             });
         }
 
+
         /*
-        APPROVE and CHANGE_MATCH require
-        a target activity.
+        ------------------------------------------------
+        Validate progress if supplied
+        ------------------------------------------------
+        */
+
+        let updatedProgress = null;
+
+        if (
+            reported_progress !== undefined &&
+            reported_progress !== null &&
+            reported_progress !== ""
+        ) {
+
+            updatedProgress = Number(reported_progress);
+
+            if (
+                Number.isNaN(updatedProgress) ||
+                updatedProgress < 0 ||
+                updatedProgress > 100
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "reported_progress must be a number between 0 and 100"
+                });
+            }
+        }
+
+
+        /*
+        ------------------------------------------------
+        APPROVE / CHANGE_MATCH require activity
+        ------------------------------------------------
         */
 
         if (
-            (action === "APPROVE" || action === "CHANGE_MATCH") &&
+            (action === "APPROVE" ||
+                action === "CHANGE_MATCH") &&
             !activity_id
         ) {
             return res.status(400).json({
                 success: false,
-                message: "activity_id is required for this action"
+                message:
+                    "activity_id is required for this action"
             });
         }
 
+
         /*
-        Start PostgreSQL transaction.
+        ------------------------------------------------
+        Start PostgreSQL transaction
+        ------------------------------------------------
         */
 
         await client.query("BEGIN");
 
+
         /*
-        Get field report.
-        Lock the row so two planners cannot
-        verify the same report simultaneously.
+        ------------------------------------------------
+        Get field report and lock it
+        ------------------------------------------------
         */
 
         const reportResult = await client.query(
             `
-            SELECT *
-            FROM field_reports
-            WHERE id = $1
-            FOR UPDATE
+                SELECT *
+                FROM field_reports
+                WHERE id = $1
+                FOR UPDATE
             `,
             [id]
         );
 
         if (reportResult.rows.length === 0) {
+
             await client.query("ROLLBACK");
 
             return res.status(404).json({
@@ -196,55 +248,67 @@ router.put("/:id", async (req, res) => {
 
         const report = reportResult.rows[0];
 
+
         /*
-        Prevent already processed reports
-        from being verified again.
+        ------------------------------------------------
+        Prevent duplicate verification
+        ------------------------------------------------
         */
 
         if (
             report.matching_status === "VERIFIED" ||
             report.matching_status === "REJECTED"
         ) {
+
             await client.query("ROLLBACK");
 
             return res.status(400).json({
                 success: false,
-                message: `Report is already ${report.matching_status}`
+                message:
+                    `Report is already ${report.matching_status}`
             });
         }
 
+
         /*
-        For APPROVE / CHANGE_MATCH,
-        verify that the selected activity
-        belongs to the same project.
+        ------------------------------------------------
+        Validate selected activity belongs
+        to the same project
+        ------------------------------------------------
         */
 
         let selectedActivity = null;
 
         if (
-            (action === "APPROVE" || action === "CHANGE_MATCH") &&
+            (action === "APPROVE" ||
+                action === "CHANGE_MATCH") &&
             activity_id
         ) {
+
             const activityResult = await client.query(
                 `
-                SELECT
-                    id,
-                    activity_code,
-                    name,
-                    discipline,
-                    actual_progress,
-                    actual_start,
-                    actual_finish,
-                    status
-                FROM activities
-                WHERE id = $1
-                AND project_id = $2
-                FOR UPDATE
+                    SELECT
+                        id,
+                        activity_code,
+                        name,
+                        discipline,
+                        actual_progress,
+                        actual_start,
+                        actual_finish,
+                        status
+                    FROM activities
+                    WHERE id = $1
+                    AND project_id = $2
+                    FOR UPDATE
                 `,
-                [activity_id, report.project_id]
+                [
+                    activity_id,
+                    report.project_id
+                ]
             );
 
             if (activityResult.rows.length === 0) {
+
                 await client.query("ROLLBACK");
 
                 return res.status(400).json({
@@ -254,46 +318,403 @@ router.put("/:id", async (req, res) => {
                 });
             }
 
-            selectedActivity = activityResult.rows[0];
+            selectedActivity =
+                activityResult.rows[0];
         }
 
+
         /*
-        Store previous values for audit logging.
+        ------------------------------------------------
+        Previous values for audit
+        ------------------------------------------------
         */
 
-        const previousActivityId = report.activity_id;
+        const previousActivityId =
+            report.activity_id;
+
+        const previousReportProgress =
+            report.reported_progress;
+
 
         /*
+        =================================================
         REJECT
+        =================================================
         */
 
         if (action === "REJECT") {
 
-            const updateReport = await client.query(
+            const updateReport =
+                await client.query(
+                    `
+                        UPDATE field_reports
+                        SET
+                            activity_id = NULL,
+                            match_confidence = 0,
+                            matching_status = 'REJECTED',
+                            verified_at = NOW(),
+                            verified_by = $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                        RETURNING *;
+                    `,
+                    [
+                        verified_by || "PLANNER",
+                        id
+                    ]
+                );
+
+
+            /*
+            ------------------------------------------------
+            Audit rejection
+            ------------------------------------------------
+            */
+
+            await client.query(
                 `
-                UPDATE field_reports
-                SET
-                    activity_id = NULL,
-                    match_confidence = 0,
-                    matching_status = 'REJECTED',
-                    verified_at = NOW(),
-                    verified_by = $1,
-                    updated_at = NOW()
-                WHERE id = $2
-                RETURNING *;
+                    INSERT INTO audit_logs
+                    (
+                        field_report_id,
+                        activity_id,
+                        action,
+                        performed_by,
+                        performed_at,
+                        previous_activity_id,
+                        new_activity_id,
+                        previous_progress,
+                        new_progress,
+                        previous_status,
+                        new_status,
+                        metadata
+                    )
+                    VALUES
+                    (
+                        $1,
+                        NULL,
+                        $2,
+                        $3,
+                        NOW(),
+                        $4,
+                        NULL,
+                        $5,
+                        NULL,
+                        $6,
+                        'REJECTED',
+                        $7
+                    );
                 `,
                 [
+                    report.id,
+                    "REJECT",
+                    verified_by || "PLANNER",
+                    previousActivityId,
+                    previousReportProgress,
+                    report.matching_status,
+                    JSON.stringify({
+                        report_code:
+                            report.report_code,
+                        report_date:
+                            report.report_date,
+                        reported_progress:
+                            report.reported_progress,
+                        previous_confidence:
+                            report.match_confidence,
+                        source_type:
+                            report.source_type
+                    })
+                ]
+            );
+
+
+            await client.query("COMMIT");
+
+            return res.json({
+                success: true,
+                message:
+                    "Field report rejected successfully",
+                data: {
+                    field_report:
+                        updateReport.rows[0]
+                }
+            });
+        }
+
+
+        /*
+        =================================================
+        APPROVE / CHANGE_MATCH
+        =================================================
+        */
+
+        const newActivityId =
+            Number(activity_id);
+
+
+        /*
+        ------------------------------------------------
+        Confidence
+        ------------------------------------------------
+        */
+
+        let newConfidence =
+            report.match_confidence;
+
+        if (action === "CHANGE_MATCH") {
+            newConfidence = 100;
+        }
+
+
+        /*
+        ------------------------------------------------
+        If planner edited progress, update the
+        field report FIRST.
+        ------------------------------------------------
+        */
+
+        if (updatedProgress !== null) {
+
+            await client.query(
+                `
+                    UPDATE field_reports
+                    SET
+                        reported_progress = $1,
+                        updated_at = NOW()
+                    WHERE id = $2;
+                `,
+                [
+                    updatedProgress,
+                    id
+                ]
+            );
+        }
+
+
+        /*
+        ------------------------------------------------
+        Update field report verification state
+        ------------------------------------------------
+        */
+
+        const updateReport =
+            await client.query(
+                `
+                    UPDATE field_reports
+                    SET
+                        activity_id = $1,
+                        match_confidence = $2,
+                        matching_status = 'VERIFIED',
+                        verified_at = NOW(),
+                        verified_by = $3,
+                        updated_at = NOW()
+                    WHERE id = $4
+                    RETURNING *;
+                `,
+                [
+                    newActivityId,
+                    newConfidence,
                     verified_by || "PLANNER",
                     id
                 ]
             );
 
-            /*
-            Create audit record for rejection.
-            */
 
+        /*
+        ------------------------------------------------
+        Find latest verified progress
+        ------------------------------------------------
+
+        Because the current report has just been updated
+        to VERIFIED, its edited progress is included.
+        ------------------------------------------------
+        */
+
+        const latestProgressResult =
             await client.query(
                 `
+                    SELECT
+                        id,
+                        reported_progress,
+                        report_date
+                    FROM field_reports
+                    WHERE activity_id = $1
+                    AND matching_status = 'VERIFIED'
+                    AND reported_progress IS NOT NULL
+                    ORDER BY
+                        report_date DESC,
+                        id DESC
+                    LIMIT 1
+                `,
+                [newActivityId]
+            );
+
+
+        /*
+        ------------------------------------------------
+        Get current activity state
+        ------------------------------------------------
+        */
+
+        const activityResult =
+            await client.query(
+                `
+                    SELECT
+                        id,
+                        activity_code,
+                        name,
+                        actual_progress,
+                        actual_start,
+                        actual_finish,
+                        status
+                    FROM activities
+                    WHERE id = $1
+                    FOR UPDATE
+                `,
+                [newActivityId]
+            );
+
+
+        if (activityResult.rows.length === 0) {
+
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                success: false,
+                message: "Activity not found"
+            });
+        }
+
+        const activity =
+            activityResult.rows[0];
+
+
+        /*
+        ------------------------------------------------
+        Previous activity values
+        ------------------------------------------------
+        */
+
+        const previousProgress =
+            activity.actual_progress;
+
+        const previousStatus =
+            activity.status;
+
+
+        /*
+        ------------------------------------------------
+        Start with current activity values
+        ------------------------------------------------
+        */
+
+        let newActualProgress =
+            activity.actual_progress;
+
+        let newActualStart =
+            activity.actual_start;
+
+        let newActualFinish =
+            activity.actual_finish;
+
+        let newStatus =
+            activity.status;
+
+
+        /*
+        ------------------------------------------------
+        Apply latest verified field progress
+        ------------------------------------------------
+        */
+
+        if (latestProgressResult.rows.length > 0) {
+
+            const latestReport =
+                latestProgressResult.rows[0];
+
+            newActualProgress =
+                latestReport.reported_progress;
+
+
+            /*
+            First verified progress report
+            becomes actual start date.
+            */
+
+            if (!newActualStart) {
+                newActualStart =
+                    latestReport.report_date;
+            }
+
+
+            /*
+            100% means activity finished.
+            */
+
+            if (
+                Number(newActualProgress) >= 100 &&
+                !newActualFinish
+            ) {
+                newActualFinish =
+                    latestReport.report_date;
+            }
+
+
+            /*
+            Calculate status.
+            */
+
+            if (
+                Number(newActualProgress) >= 100
+            ) {
+
+                newStatus = "COMPLETED";
+
+            } else if (
+                Number(newActualProgress) > 0
+            ) {
+
+                newStatus = "IN_PROGRESS";
+            }
+        }
+
+
+        /*
+        ------------------------------------------------
+        Update activity execution state
+        ------------------------------------------------
+        */
+
+        const updateActivity =
+            await client.query(
+                `
+                    UPDATE activities
+                    SET
+                        actual_progress = $1,
+                        actual_start = $2,
+                        actual_finish = $3,
+                        status = $4,
+                        updated_at = NOW()
+                    WHERE id = $5
+                    RETURNING *;
+                `,
+                [
+                    newActualProgress,
+                    newActualStart,
+                    newActualFinish,
+                    newStatus,
+                    newActivityId
+                ]
+            );
+
+
+        /*
+        =================================================
+        AUDIT LOG
+        =================================================
+        */
+
+        await client.query(
+            `
                 INSERT INTO audit_logs
                 (
                     field_report_id,
@@ -312,267 +733,18 @@ router.put("/:id", async (req, res) => {
                 VALUES
                 (
                     $1,
-                    NULL,
                     $2,
                     $3,
-                    NOW(),
                     $4,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    $5
+                    NOW(),
+                    $5,
+                    $6,
+                    $7,
+                    $8,
+                    $9,
+                    $10,
+                    $11
                 );
-                `,
-                [
-                    report.id,
-                    "REJECT",
-                    verified_by || "PLANNER",
-                    previousActivityId,
-                    JSON.stringify({
-                        report_code: report.report_code,
-                        report_date: report.report_date,
-                        reported_progress: report.reported_progress,
-                        previous_confidence: report.match_confidence,
-                        source_type: report.source_type
-                    })
-                ]
-            );
-
-            await client.query("COMMIT");
-
-            return res.json({
-                success: true,
-                message: "Field report rejected successfully",
-                data: {
-                    field_report: updateReport.rows[0]
-                }
-            });
-        }
-
-        /*
-        APPROVE / CHANGE_MATCH
-        */
-
-        const newActivityId = activity_id;
-
-        /*
-        APPROVE:
-        Keep the existing confidence.
-
-        CHANGE_MATCH:
-        Planner explicitly selected the activity,
-        therefore confidence becomes 100.
-        */
-
-        let newConfidence = report.match_confidence;
-
-        if (action === "CHANGE_MATCH") {
-            newConfidence = 100;
-        }
-
-        /*
-        Update field report.
-        */
-
-        const updateReport = await client.query(
-            `
-            UPDATE field_reports
-            SET
-                activity_id = $1,
-                match_confidence = $2,
-                matching_status = 'VERIFIED',
-                verified_at = NOW(),
-                verified_by = $3,
-                updated_at = NOW()
-            WHERE id = $4
-            RETURNING *;
-            `,
-            [
-                newActivityId,
-                newConfidence,
-                verified_by || "PLANNER",
-                id
-            ]
-        );
-
-        /*
-        Find the latest verified progress
-        for the selected activity.
-
-        This prevents an older report from
-        overwriting newer execution progress.
-        */
-
-        const latestProgressResult = await client.query(
-            `
-            SELECT
-                id,
-                reported_progress,
-                report_date
-            FROM field_reports
-            WHERE activity_id = $1
-            AND matching_status = 'VERIFIED'
-            AND reported_progress IS NOT NULL
-            ORDER BY report_date DESC, id DESC
-            LIMIT 1
-            `,
-            [newActivityId]
-        );
-
-        /*
-        Get the current activity state.
-        */
-
-        const activityResult = await client.query(
-            `
-            SELECT
-                id,
-                activity_code,
-                name,
-                actual_progress,
-                actual_start,
-                actual_finish,
-                status
-            FROM activities
-            WHERE id = $1
-            FOR UPDATE
-            `,
-            [newActivityId]
-        );
-
-        if (activityResult.rows.length === 0) {
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                success: false,
-                message: "Activity not found"
-            });
-        }
-
-        const activity = activityResult.rows[0];
-
-        /*
-        Save previous activity values
-        for audit logging.
-        */
-
-        const previousProgress = activity.actual_progress;
-        const previousStatus = activity.status;
-
-        /*
-        Start with current activity values.
-        */
-
-        let newActualProgress = activity.actual_progress;
-        let newActualStart = activity.actual_start;
-        let newActualFinish = activity.actual_finish;
-        let newStatus = activity.status;
-
-        /*
-        Apply latest verified field progress.
-        */
-
-        if (latestProgressResult.rows.length > 0) {
-
-            const latestReport = latestProgressResult.rows[0];
-
-            newActualProgress = latestReport.reported_progress;
-
-            /*
-            First verified progress report becomes
-            the actual start date.
-            */
-
-            if (!newActualStart) {
-                newActualStart = latestReport.report_date;
-            }
-
-            /*
-            100% progress means the activity
-            has actually finished.
-            */
-
-            if (
-                Number(newActualProgress) >= 100 &&
-                !newActualFinish
-            ) {
-                newActualFinish = latestReport.report_date;
-            }
-
-            /*
-            Calculate activity status.
-            */
-
-            if (Number(newActualProgress) >= 100) {
-                newStatus = "COMPLETED";
-            } else if (Number(newActualProgress) > 0) {
-                newStatus = "IN_PROGRESS";
-            }
-        }
-
-        /*
-        Update activity execution state.
-        */
-
-        const updateActivity = await client.query(
-            `
-            UPDATE activities
-            SET
-                actual_progress = $1,
-                actual_start = $2,
-                actual_finish = $3,
-                status = $4,
-                updated_at = NOW()
-            WHERE id = $5
-            RETURNING *;
-            `,
-            [
-                newActualProgress,
-                newActualStart,
-                newActualFinish,
-                newStatus,
-                newActivityId
-            ]
-        );
-
-        /*
-        Create audit trail record.
-        */
-
-        await client.query(
-            `
-            INSERT INTO audit_logs
-            (
-                field_report_id,
-                activity_id,
-                action,
-                performed_by,
-                performed_at,
-                previous_activity_id,
-                new_activity_id,
-                previous_progress,
-                new_progress,
-                previous_status,
-                new_status,
-                metadata
-            )
-            VALUES
-            (
-                $1,
-                $2,
-                $3,
-                $4,
-                NOW(),
-                $5,
-                $6,
-                $7,
-                $8,
-                $9,
-                $10,
-                $11
-            );
             `,
             [
                 report.id,
@@ -590,52 +762,77 @@ router.put("/:id", async (req, res) => {
                 newStatus,
 
                 JSON.stringify({
-                    report_code: report.report_code,
-                    report_date: report.report_date,
-                    reported_progress: report.reported_progress,
-                    match_confidence: newConfidence,
-                    source_type: report.source_type,
-                    activity_code: selectedActivity
-                        ? selectedActivity.activity_code
-                        : null,
-                    activity_name: selectedActivity
-                        ? selectedActivity.name
-                        : null
+                    report_code:
+                        report.report_code,
+
+                    report_date:
+                        report.report_date,
+
+                    previous_reported_progress:
+                        previousReportProgress,
+
+                    updated_reported_progress:
+                        updatedProgress !== null
+                            ? updatedProgress
+                            : previousReportProgress,
+
+                    match_confidence:
+                        newConfidence,
+
+                    source_type:
+                        report.source_type,
+
+                    activity_code:
+                        selectedActivity
+                            ? selectedActivity.activity_code
+                            : null,
+
+                    activity_name:
+                        selectedActivity
+                            ? selectedActivity.name
+                            : null
                 })
             ]
         );
 
+
         /*
-        Commit:
-        field report + activity + audit log
-        are saved together.
+        ------------------------------------------------
+        Commit everything together
+        ------------------------------------------------
         */
 
         await client.query("COMMIT");
+
 
         res.json({
             success: true,
             message:
                 "Verification, activity update and audit logging completed successfully",
+
             data: {
-                field_report: updateReport.rows[0],
-                activity: updateActivity.rows[0]
+                field_report:
+                    updateReport.rows[0],
+
+                activity:
+                    updateActivity.rows[0]
             }
         });
 
-    } catch (error) {
 
-        /*
-        Roll back everything if any operation fails.
-        */
+    } catch (error) {
 
         await client.query("ROLLBACK");
 
-        console.error("Verification update error:", error);
+        console.error(
+            "Verification update error:",
+            error
+        );
 
         res.status(500).json({
             success: false,
-            message: "Failed to verify field report",
+            message:
+                "Failed to verify field report",
             error: error.message
         });
 

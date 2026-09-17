@@ -1,78 +1,6 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-
-const initialActivities = [
-  {
-    id: "A103",
-    activity: "Compressor Foundation",
-    discipline: "Civil",
-    plannedStart: "01 Sep 2026",
-    plannedFinish: "15 Sep 2026",
-    actualStart: "02 Sep 2026",
-    actualFinish: "—",
-    planned: "80%",
-    actual: "65%",
-    variance: "-15%",
-    status: "Delayed",
-    risk: "HIGH",
-  },
-  {
-    id: "A221",
-    activity: "Main Piping Installation",
-    discipline: "Piping",
-    plannedStart: "05 Sep 2026",
-    plannedFinish: "20 Sep 2026",
-    actualStart: "06 Sep 2026",
-    actualFinish: "—",
-    planned: "70%",
-    actual: "48%",
-    variance: "-22%",
-    status: "Delayed",
-    risk: "HIGH",
-  },
-  {
-    id: "A417",
-    activity: "Electrical Works",
-    discipline: "Electrical",
-    plannedStart: "03 Sep 2026",
-    plannedFinish: "18 Sep 2026",
-    actualStart: "03 Sep 2026",
-    actualFinish: "—",
-    planned: "75%",
-    actual: "72%",
-    variance: "-3%",
-    status: "On Track",
-    risk: "MEDIUM",
-  },
-  {
-    id: "A508",
-    activity: "Equipment Installation",
-    discipline: "Mechanical",
-    plannedStart: "08 Sep 2026",
-    plannedFinish: "25 Sep 2026",
-    actualStart: "08 Sep 2026",
-    actualFinish: "—",
-    planned: "60%",
-    actual: "58%",
-    variance: "-2%",
-    status: "On Track",
-    risk: "LOW",
-  },
-  {
-    id: "A601",
-    activity: "Safety Inspection",
-    discipline: "HSE",
-    plannedStart: "01 Sep 2026",
-    plannedFinish: "30 Sep 2026",
-    actualStart: "01 Sep 2026",
-    actualFinish: "—",
-    planned: "85%",
-    actual: "88%",
-    variance: "+3%",
-    status: "On Track",
-    risk: "LOW",
-  },
-]
+import { getActivities } from "../services/api"
 
 const disciplines = [
   "All",
@@ -84,42 +12,120 @@ const disciplines = [
   "Mechanical",
 ]
 
+function formatDate(date) {
+  if (!date) return "—"
+
+  const value = String(date).slice(0, 10)
+  const parts = value.split("-")
+
+  if (parts.length !== 3) return value
+
+  const [year, month, day] = parts
+
+  return `${day} ${new Date(
+    `${year}-${month}-01`
+  ).toLocaleString("en-US", {
+    month: "short",
+  })} ${year}`
+}
+
+function formatProgress(value) {
+  return `${Number(value || 0)}%`
+}
+
+function formatStatus(status) {
+  if (!status) return "—"
+
+  if (status === "IN_PROGRESS") return "In Progress"
+  if (status === "COMPLETED") return "Completed"
+  if (status === "DELAYED") return "Delayed"
+
+  return status
+}
+
+function getRisk(activity) {
+  return activity.risk_level || "LOW"
+}
+
 const Activities = () => {
   const navigate = useNavigate()
 
-  const [activities] = useState(initialActivities)
+  const [activities, setActivities] = useState([])
   const [search, setSearch] = useState("")
   const [discipline, setDiscipline] = useState("All")
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    loadActivities()
+  }, [])
+
+  async function loadActivities() {
+    try {
+      setLoading(true)
+      setError("")
+
+      const response = await getActivities()
+
+      const backendActivities = response.data || []
+
+      setActivities(backendActivities)
+    } catch (err) {
+      console.error("Failed to load activities:", err)
+      setError(err.message || "Failed to load activities")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredActivities = activities.filter((item) => {
     const query = search.toLowerCase().trim()
 
+    const activityId = String(
+      item.activity_code || ""
+    ).toLowerCase()
+
+    const activityName = String(
+      item.name || ""
+    ).toLowerCase()
+
+    const activityDescription = String(
+      item.description || ""
+    ).toLowerCase()
+
+    const activityDiscipline = String(
+      item.discipline || ""
+    )
+
     const matchesSearch =
       !query ||
-      item.id.toLowerCase().includes(query) ||
-      item.activity.toLowerCase().includes(query)
+      activityId.includes(query) ||
+      activityName.includes(query) ||
+      activityDescription.includes(query)
 
     const matchesDiscipline =
       discipline === "All" ||
-      item.discipline === discipline
+      activityDiscipline.toLowerCase() ===
+        discipline.toLowerCase()
 
     return matchesSearch && matchesDiscipline
   })
 
   const delayedCount = filteredActivities.filter(
-    (item) => item.status === "Delayed"
+    (item) =>
+      item.status === "DELAYED" ||
+      Number(item.potential_delay_days || 0) > 0
   ).length
 
   const highRiskCount = filteredActivities.filter(
-    (item) => item.risk === "HIGH"
+    (item) => getRisk(item) === "HIGH"
   ).length
 
   return (
     <div className="w-full pb-10">
 
-      {/* =========================
-          HEADER
-      ========================== */}
+      {/* HEADER */}
 
       <div>
         <h2
@@ -142,10 +148,7 @@ const Activities = () => {
         </p>
       </div>
 
-
-      {/* =========================
-          SEARCH + FILTERS
-      ========================== */}
+      {/* SEARCH + FILTERS */}
 
       <div
         className="
@@ -212,8 +215,7 @@ const Activities = () => {
           </select>
         </div>
 
-
-        {/* Filter Buttons */}
+        {/* FILTER BUTTONS */}
 
         <div
           className="
@@ -248,569 +250,533 @@ const Activities = () => {
         </div>
       </div>
 
+      {/* LOADING */}
 
-      {/* =========================
-          ACTIVITY SUMMARY
-      ========================== */}
-
-      <div
-        className="
-          mt-6
-          grid
-          grid-cols-1
-          gap-3
-          sm:mt-8
-          sm:grid-cols-3
-          sm:gap-4
-        "
-      >
-        <div
-          className="
-            rounded-xl
-            border border-[#252d38]
-            bg-[#151b24]
-            p-4
-            sm:p-5
-          "
-        >
-          <p className="text-xs text-gray-400 sm:text-sm">
-            Activities
-          </p>
-
-          <p
-            className="
-              mt-1.5
-              text-xl font-semibold text-white
-              sm:mt-2 sm:text-2xl
-            "
-          >
-            {filteredActivities.length}
+      {loading && (
+        <div className="mt-8 rounded-xl border border-[#252d38] bg-[#151b24] p-8 text-center">
+          <p className="text-gray-400">
+            Loading activities...
           </p>
         </div>
+      )}
 
+      {/* ERROR */}
 
-        <div
-          className="
-            rounded-xl
-            border border-[#252d38]
-            bg-[#151b24]
-            p-4
-            sm:p-5
-          "
-        >
-          <p className="text-xs text-gray-400 sm:text-sm">
-            Delayed
+      {!loading && error && (
+        <div className="mt-8 rounded-xl border border-red-500/30 bg-[#151b24] p-6">
+          <p className="text-sm text-red-400">
+            {error}
           </p>
 
-          <p
+          <button
+            onClick={loadActivities}
+            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* ACTIVITY SUMMARY */}
+
+      {!loading && !error && (
+        <div
+          className="
+            mt-6
+            grid
+            grid-cols-1
+            gap-3
+            sm:mt-8
+            sm:grid-cols-3
+            sm:gap-4
+          "
+        >
+          <div
             className="
-              mt-1.5
-              text-xl font-semibold text-red-400
-              sm:mt-2 sm:text-2xl
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              sm:p-5
             "
           >
-            {delayedCount}
-          </p>
-        </div>
+            <p className="text-xs text-gray-400 sm:text-sm">
+              Activities
+            </p>
 
-
-        <div
-          className="
-            rounded-xl
-            border border-[#252d38]
-            bg-[#151b24]
-            p-4
-            sm:p-5
-          "
-        >
-          <p className="text-xs text-gray-400 sm:text-sm">
-            High Risk
-          </p>
-
-          <p
-            className="
-              mt-1.5
-              text-xl font-semibold text-red-400
-              sm:mt-2 sm:text-2xl
-            "
-          >
-            {highRiskCount}
-          </p>
-        </div>
-      </div>
-
-
-      {/* =========================
-          ACTIVITIES TABLE
-      ========================== */}
-
-      <div
-        className="
-          mt-6
-          rounded-xl
-          border border-[#252d38]
-          bg-[#151b24]
-          p-4
-          sm:mt-8 sm:p-6
-        "
-      >
-
-        {/* Table Header */}
-
-        <div
-          className="
-            flex
-            flex-col
-            gap-2
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-          "
-        >
-          <div className="min-w-0">
-            <h3
-              className="
-                text-base
-                font-semibold
-                text-white
-                sm:text-lg
-              "
-            >
-              Schedule Activities
-            </h3>
-
-            <p
-              className="
-                mt-1
-                text-xs text-gray-400
-                sm:text-sm
-              "
-            >
-              Planning baseline compared with field execution
+            <p className="mt-1.5 text-xl font-semibold text-white sm:mt-2 sm:text-2xl">
+              {filteredActivities.length}
             </p>
           </div>
 
-          <span className="text-xs text-gray-500">
-            {filteredActivities.length} Records
-          </span>
+          <div
+            className="
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              sm:p-5
+            "
+          >
+            <p className="text-xs text-gray-400 sm:text-sm">
+              Delayed
+            </p>
+
+            <p className="mt-1.5 text-xl font-semibold text-red-400 sm:mt-2 sm:text-2xl">
+              {delayedCount}
+            </p>
+          </div>
+
+          <div
+            className="
+              rounded-xl
+              border border-[#252d38]
+              bg-[#151b24]
+              p-4
+              sm:p-5
+            "
+          >
+            <p className="text-xs text-gray-400 sm:text-sm">
+              High Risk
+            </p>
+
+            <p className="mt-1.5 text-xl font-semibold text-red-400 sm:mt-2 sm:text-2xl">
+              {highRiskCount}
+            </p>
+          </div>
         </div>
-
-
-        {/* =========================
-            DESKTOP / TABLET TABLE
-        ========================== */}
-
-        <div className="mt-5 hidden overflow-x-auto md:block sm:mt-6">
-          <table className="w-full min-w-275 text-sm">
-
-            <thead>
-              <tr className="border-b border-[#252d38] text-left">
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Activity
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Discipline
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Planned Start
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Planned Finish
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Actual Start
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Actual Finish
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Planned
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Actual
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Variance
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Risk
-                </th>
-
-                <th className="pb-3 font-medium text-gray-500">
-                  Status
-                </th>
-
-              </tr>
-            </thead>
-
-
-            <tbody>
-
-              {filteredActivities.map((item) => (
-                <tr
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === "A103") {
-                      navigate("/activity/A103")
-                    }
-                  }}
-                  className={`
-                    border-b
-                    border-[#252d38]
-                    last:border-0
-                    ${
-                      item.id === "A103"
-                        ? "cursor-pointer hover:bg-[#1b2430]"
-                        : ""
-                    }
-                  `}
-                >
-
-                  <td className="py-4 pr-5">
-                    <p className="font-medium text-white">
-                      {item.activity}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                      {item.id}
-                    </p>
-                  </td>
-
-
-                  <td className="py-4 pr-5 text-gray-300">
-                    {item.discipline}
-                  </td>
-
-
-                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
-                    {item.plannedStart}
-                  </td>
-
-
-                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
-                    {item.plannedFinish}
-                  </td>
-
-
-                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
-                    {item.actualStart}
-                  </td>
-
-
-                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
-                    {item.actualFinish}
-                  </td>
-
-
-                  <td className="py-4 pr-5 text-gray-300">
-                    {item.planned}
-                  </td>
-
-
-                  <td className="py-4 pr-5 font-medium text-white">
-                    {item.actual}
-                  </td>
-
-
-                  <td className="py-4 pr-5">
-                    <span
-                      className={
-                        item.variance.startsWith("-")
-                          ? "text-red-400"
-                          : "text-green-400"
-                      }
-                    >
-                      {item.variance}
-                    </span>
-                  </td>
-
-
-                  <td className="py-4 pr-5">
-                    <span
-                      className={
-                        item.risk === "HIGH"
-                          ? "font-medium text-red-400"
-                          : item.risk === "MEDIUM"
-                          ? "font-medium text-yellow-400"
-                          : "font-medium text-green-400"
-                      }
-                    >
-                      {item.risk}
-                    </span>
-                  </td>
-
-
-                  <td className="py-4">
-                    <span
-                      className={
-                        item.status === "Delayed"
-                          ? "text-red-400"
-                          : "text-green-400"
-                      }
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-
-                </tr>
-              ))}
-
-            </tbody>
-
-          </table>
-        </div>
-
-
-        {/* =========================
-            MOBILE ACTIVITY CARDS
-        ========================== */}
-
-        <div className="mt-5 space-y-3 md:hidden">
-
-          {filteredActivities.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => {
-                if (item.id === "A103") {
-                  navigate("/activity/A103")
-                }
-              }}
-              className={`
-                rounded-lg
-                border border-[#252d38]
-                bg-[#10151c]
-                p-4
-                ${
-                  item.id === "A103"
-                    ? "cursor-pointer active:bg-[#1b2430]"
-                    : ""
-                }
-              `}
-            >
-
-              {/* Activity Header */}
-
-              <div className="flex items-start justify-between gap-3">
-
-                <div className="min-w-0">
-                  <p className="wrap-break-word text-sm font-medium text-white">
-                    {item.activity}
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    {item.id}
-                  </p>
-                </div>
-
-                <span
-                  className={`
-                    shrink-0
-                    text-[10px]
-                    font-medium
-                    ${
-                      item.risk === "HIGH"
-                        ? "text-red-400"
-                        : item.risk === "MEDIUM"
-                        ? "text-yellow-400"
-                        : "text-green-400"
-                    }
-                  `}
-                >
-                  {item.risk}
-                </span>
-
-              </div>
-
-
-              {/* Discipline */}
-
-              <div className="mt-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-600">
-                  Discipline
-                </p>
-
-                <p className="mt-1 text-xs text-gray-300">
-                  {item.discipline}
-                </p>
-              </div>
-
-
-              {/* Dates */}
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-2
-                  gap-3
-                  border-t border-[#252d38]
-                  pt-3
-                "
-              >
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Planned Start
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {item.plannedStart}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Planned Finish
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {item.plannedFinish}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Actual Start
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {item.actualStart}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Actual Finish
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {item.actualFinish}
-                  </p>
-                </div>
-
-              </div>
-
-
-              {/* Progress */}
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-3
-                  gap-2
-                  border-t border-[#252d38]
-                  pt-3
-                "
-              >
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Planned
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-300">
-                    {item.planned}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Actual
-                  </p>
-
-                  <p className="mt-1 text-xs font-medium text-white">
-                    {item.actual}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Variance
-                  </p>
-
-                  <p
-                    className={`
-                      mt-1 text-xs
-                      ${
-                        item.variance.startsWith("-")
-                          ? "text-red-400"
-                          : "text-green-400"
-                      }
-                    `}
-                  >
-                    {item.variance}
-                  </p>
-                </div>
-
-              </div>
-
-
-              {/* Status */}
-
-              <div
-                className="
-                  mt-4
-                  flex
-                  items-center
-                  justify-between
-                  border-t border-[#252d38]
-                  pt-3
-                "
-              >
-                <span className="text-[10px] uppercase tracking-wider text-gray-600">
-                  Status
-                </span>
-
-                <span
-                  className={
-                    item.status === "Delayed"
-                      ? "text-xs text-red-400"
-                      : "text-xs text-green-400"
-                  }
-                >
-                  {item.status}
-                </span>
-              </div>
-
+      )}
+
+      {/* ACTIVITIES TABLE */}
+
+      {!loading && !error && (
+        <div
+          className="
+            mt-6
+            rounded-xl
+            border border-[#252d38]
+            bg-[#151b24]
+            p-4
+            sm:mt-8 sm:p-6
+          "
+        >
+          <div
+            className="
+              flex
+              flex-col
+              gap-2
+              sm:flex-row
+              sm:items-center
+              sm:justify-between
+            "
+          >
+            <div>
+              <h3 className="text-base font-semibold text-white sm:text-lg">
+                Schedule Activities
+              </h3>
+
+              <p className="mt-1 text-xs text-gray-400 sm:text-sm">
+                Planning baseline compared with field execution
+              </p>
             </div>
-          ))}
 
-        </div>
-
-
-        {/* Empty State */}
-
-        {filteredActivities.length === 0 && (
-          <div className="py-10 text-center">
-
-            <p className="text-sm text-gray-400">
-              No activities found
-            </p>
-
-            <p className="mt-1 text-xs text-gray-600">
-              Try another Activity ID, name or discipline.
-            </p>
-
+            <span className="text-xs text-gray-500">
+              {filteredActivities.length} Records
+            </span>
           </div>
-        )}
 
-      </div>
+          {/* DESKTOP TABLE */}
 
+          <div className="mt-5 hidden overflow-x-auto md:block sm:mt-6">
+            <table className="w-full min-w-[1100px] text-sm">
+              <thead>
+                <tr className="border-b border-[#252d38] text-left">
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Activity
+                  </th>
 
-      {/* =========================
-          EXECUTION RECONCILIATION
-      ========================== */}
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Discipline
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Planned Start
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Planned Finish
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Actual Start
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Actual Finish
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Planned
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Actual
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Variance
+                  </th>
+
+                  <th className="pb-3 pr-5 font-medium text-gray-500">
+                    Risk
+                  </th>
+
+                  <th className="pb-3 font-medium text-gray-500">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredActivities.map((item) => {
+                  const planned = Number(
+                    item.planned_progress || 0
+                  )
+
+                  const actual = Number(
+                    item.actual_progress || 0
+                  )
+
+                  const variance = Number(
+                    (actual - planned).toFixed(2)
+                  )
+
+                  const risk = getRisk(item)
+
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() =>
+                        navigate(`/activity/${item.id}`)
+                      }
+                      className="
+                        cursor-pointer
+                        border-b border-[#252d38]
+                        last:border-0
+                        hover:bg-[#1b2430]
+                      "
+                    >
+                      <td className="py-4 pr-5">
+                        <p className="font-medium text-white">
+                          {item.name || "Unnamed Activity"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-gray-500">
+                          {item.activity_code || item.id}
+                        </p>
+                      </td>
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-300">
+                          {item.discipline || "—"}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap py-4 pr-5">
+                        <span className="text-gray-400">
+                          {formatDate(item.planned_start)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap py-4 pr-5">
+                        <span className="text-gray-400">
+                          {formatDate(item.planned_finish)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap py-4 pr-5">
+                        <span className="text-gray-400">
+                          {formatDate(item.actual_start)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap py-4 pr-5">
+                        <span className="text-gray-400">
+                          {formatDate(item.actual_finish)}
+                        </span>
+                      </td>
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-300">
+                          {formatProgress(planned)}
+                        </span>
+                      </td>
+
+                      <td className="py-4 pr-5">
+                        <span className="font-medium text-white">
+                          {formatProgress(actual)}
+                        </span>
+                      </td>
+
+                      <td className="py-4 pr-5">
+                        <span
+                          className={
+                            variance < 0
+                              ? "text-red-400"
+                              : "text-green-400"
+                          }
+                        >
+                          {variance > 0 ? "+" : ""}
+                          {variance}%
+                        </span>
+                      </td>
+
+                      <td className="py-4 pr-5">
+                        <span
+                          className={
+                            risk === "HIGH"
+                              ? "font-medium text-red-400"
+                              : risk === "MEDIUM"
+                              ? "font-medium text-yellow-400"
+                              : "font-medium text-green-400"
+                          }
+                        >
+                          {risk}
+                        </span>
+                      </td>
+
+                      <td className="py-4">
+                        <span
+                          className={
+                            item.status === "DELAYED"
+                              ? "text-red-400"
+                              : item.status === "COMPLETED"
+                              ? "text-green-400"
+                              : "text-green-400"
+                          }
+                        >
+                          {formatStatus(item.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* MOBILE ACTIVITY CARDS */}
+
+          <div className="mt-5 space-y-3 md:hidden">
+            {filteredActivities.map((item) => {
+              const planned = Number(
+                item.planned_progress || 0
+              )
+
+              const actual = Number(
+                item.actual_progress || 0
+              )
+
+              const variance = Number(
+                (actual - planned).toFixed(2)
+              )
+
+              const risk = getRisk(item)
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() =>
+                    navigate(`/activity/${item.id}`)
+                  }
+                  className="
+                    cursor-pointer
+                    rounded-lg
+                    border border-[#252d38]
+                    bg-[#10151c]
+                    p-4
+                    active:bg-[#1b2430]
+                  "
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-medium text-white">
+                        {item.name || "Unnamed Activity"}
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.activity_code || item.id}
+                      </p>
+                    </div>
+
+                    <span
+                      className={
+                        risk === "HIGH"
+                          ? "shrink-0 text-[10px] font-medium text-red-400"
+                          : risk === "MEDIUM"
+                          ? "shrink-0 text-[10px] font-medium text-yellow-400"
+                          : "shrink-0 text-[10px] font-medium text-green-400"
+                      }
+                    >
+                      {risk}
+                    </span>
+                  </div>
+
+                  <div className="mt-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-600">
+                      Discipline
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-300">
+                      {item.discipline || "—"}
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      mt-4
+                      grid
+                      grid-cols-2
+                      gap-3
+                      border-t border-[#252d38]
+                      pt-3
+                    "
+                  >
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Planned Start
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatDate(item.planned_start)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Planned Finish
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatDate(item.planned_finish)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Actual Start
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatDate(item.actual_start)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Actual Finish
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatDate(item.actual_finish)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="
+                      mt-4
+                      grid
+                      grid-cols-3
+                      gap-2
+                      border-t border-[#252d38]
+                      pt-3
+                    "
+                  >
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Planned
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-300">
+                        {formatProgress(planned)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Actual
+                      </p>
+
+                      <p className="mt-1 text-xs font-medium text-white">
+                        {formatProgress(actual)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] text-gray-600">
+                        Variance
+                      </p>
+
+                      <p
+                        className={
+                          variance < 0
+                            ? "mt-1 text-xs text-red-400"
+                            : "mt-1 text-xs text-green-400"
+                        }
+                      >
+                        {variance > 0 ? "+" : ""}
+                        {variance}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="
+                      mt-4
+                      flex
+                      items-center
+                      justify-between
+                      border-t border-[#252d38]
+                      pt-3
+                    "
+                  >
+                    <span className="text-[10px] uppercase tracking-wider text-gray-600">
+                      Status
+                    </span>
+
+                    <span
+                      className={
+                        item.status === "DELAYED"
+                          ? "text-xs text-red-400"
+                          : "text-xs text-green-400"
+                      }
+                    >
+                      {formatStatus(item.status)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* EMPTY STATE */}
+
+          {filteredActivities.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400">
+                No activities found
+              </p>
+
+              <p className="mt-1 text-xs text-gray-600">
+                Try another Activity ID, name or discipline.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* EXECUTION RECONCILIATION */}
 
       <div
         className="

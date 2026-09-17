@@ -7,6 +7,7 @@ import fieldReportsRouter from "./routes/fieldReports.js";
 import matchingRouter from "./routes/matching.js";
 import verificationRouter from "./routes/verification.js";
 import analyticsRouter from "./routes/analytics.js";
+import auditTrailRouter from "./routes/auditTrail.js";
 
 dotenv.config();
 
@@ -14,6 +15,11 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+
+// ========================================
+// API INFORMATION
+// ========================================
 
 app.get("/api", (req, res) => {
     res.json({
@@ -23,18 +29,30 @@ app.get("/api", (req, res) => {
             health: "/api/health",
             projects: "/api/projects",
             activities: "/api/activities",
-            fieldReports: "/api/field-reports"
+            fieldReports: "/api/field-reports",
+            matching: "/api/matching",
+            verification: "/api/verification",
+            analytics: "/api/analytics"
         }
     });
 });
+
+
+// ========================================
+// ROUTES
+// ========================================
 
 app.use("/api/projects", projectsRouter);
 app.use("/api/field-reports", fieldReportsRouter);
 app.use("/api/matching", matchingRouter);
 app.use("/api/verification", verificationRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/audit-trail", auditTrailRouter);
 
-// Root
+// ========================================
+// ROOT
+// ========================================
+
 app.get("/", (req, res) => {
     res.json({
         success: true,
@@ -43,10 +61,15 @@ app.get("/", (req, res) => {
 });
 
 
-// Database health check
+// ========================================
+// DATABASE HEALTH CHECK
+// ========================================
+
 app.get("/api/health", async (req, res) => {
     try {
-        const result = await pool.query("SELECT NOW() AS time");
+        const result = await pool.query(
+            "SELECT NOW() AS time"
+        );
 
         res.json({
             success: true,
@@ -68,29 +91,40 @@ app.get("/api/health", async (req, res) => {
 });
 
 
-// Get activities
+// ========================================
+// GET ACTIVITIES
+// ========================================
+
 app.get("/api/activities", async (req, res) => {
     try {
+
         const result = await pool.query(`
             SELECT
                 a.id,
                 a.activity_code,
+                a.project_id,
                 a.name,
                 a.description,
+                a.discipline,
                 a.planned_progress,
                 a.actual_progress,
                 a.risk_level,
                 a.status,
                 a.planned_start,
                 a.planned_finish,
+                a.actual_start,
+                a.actual_finish,
                 a.forecast_finish,
                 a.potential_delay_days,
                 p.project_code,
                 p.name AS project_name
+
             FROM activities a
-            JOIN projects p
+
+            LEFT JOIN projects p
                 ON a.project_id = p.id
-            ORDER BY a.id;
+
+            ORDER BY a.id ASC;
         `);
 
         res.json({
@@ -100,15 +134,21 @@ app.get("/api/activities", async (req, res) => {
         });
 
     } catch (error) {
+
         console.error("Activities error:", error);
 
         res.status(500).json({
             success: false,
-            message: "Failed to fetch activities"
+            message: "Failed to fetch activities",
+            error: error.message
         });
     }
 });
 
+
+// ========================================
+// START SERVER
+// ========================================
 
 const PORT = process.env.PORT || 5000;
 

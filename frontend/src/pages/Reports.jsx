@@ -1,43 +1,10 @@
-import { useState } from "react"
-
-const initialReports = [
-  {
-    id: "FR-1023",
-    date: "16 Sep 2026",
-    sourceType: "Daily Report",
-    discipline: "Civil",
-    activity: "Compressor Foundation",
-    progress: "65%",
-    processingStatus: "Processed",
-    extractionStatus: "Complete",
-    matchingStatus: "Matched",
-    confidence: "94%",
-  },
-  {
-    id: "FR-1031",
-    date: "16 Sep 2026",
-    sourceType: "Daily Report",
-    discipline: "Civil",
-    activity: "Compressor Foundation",
-    progress: "65%",
-    processingStatus: "Processed",
-    extractionStatus: "Complete",
-    matchingStatus: "Needs Review",
-    confidence: "81%",
-  },
-  {
-    id: "FR-1042",
-    date: "15 Sep 2026",
-    sourceType: "Spreadsheet",
-    discipline: "Piping",
-    activity: "Main Piping Installation",
-    progress: "48%",
-    processingStatus: "Processed",
-    extractionStatus: "Complete",
-    matchingStatus: "Matched",
-    confidence: "89%",
-  },
-]
+import { useEffect, useState } from "react"
+import {
+  getFieldReports,
+  createFieldReport,
+  getProjects,
+  getActivities,
+} from "../services/api"
 
 const sourceTypes = [
   "Daily Report",
@@ -51,16 +18,113 @@ const disciplines = [
   "Electrical",
   "Instrumentation",
   "HSE",
+  "Mechanical",
 ]
 
+function formatDate(date) {
+  if (!date) return "—"
+
+  const value = String(date).slice(0, 10)
+  const parts = value.split("-")
+
+  if (parts.length !== 3) return value
+
+  const [year, month, day] = parts
+
+  const monthName = new Date(
+    `${year}-${month}-01`
+  ).toLocaleString("en-US", {
+    month: "short",
+  })
+
+  return `${day} ${monthName} ${year}`
+}
+
+function formatProgress(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—"
+  }
+
+  return `${Number(value)}%`
+}
+
+function formatMatchingStatus(status) {
+  if (!status) return "—"
+
+  if (status === "AUTO_LINKED") return "Matched"
+  if (status === "REQUIRES_REVIEW") return "Needs Review"
+  if (status === "UNMATCHED") return "Unmatched"
+  if (status === "VERIFIED") return "Verified"
+  if (status === "MANUALLY_LINKED") return "Matched"
+  if (status === "REJECTED") return "Rejected"
+
+  return status
+}
+
+function formatProcessingStatus(report) {
+  if (
+    report.matching_status === "AUTO_LINKED" ||
+    report.matching_status === "VERIFIED" ||
+    report.matching_status === "MANUALLY_LINKED"
+  ) {
+    return "Processed"
+  }
+
+  return "Pending"
+}
+
+function formatExtractionStatus(report) {
+  if (
+    report.matching_status === "AUTO_LINKED" ||
+    report.matching_status === "VERIFIED" ||
+    report.matching_status === "MANUALLY_LINKED"
+  ) {
+    return "Complete"
+  }
+
+  return "Pending"
+}
+
+function statusClass(status) {
+  if (
+    status === "Complete" ||
+    status === "Processed" ||
+    status === "Matched" ||
+    status === "Verified"
+  ) {
+    return "text-green-400"
+  }
+
+  if (status === "Needs Review") {
+    return "text-yellow-400"
+  }
+
+  if (status === "Pending") {
+    return "text-gray-400"
+  }
+
+  if (status === "Unmatched" || status === "Rejected") {
+    return "text-red-400"
+  }
+
+  return "text-gray-400"
+}
+
 const Reports = () => {
-  const [reports, setReports] = useState(initialReports)
+  const [reports, setReports] = useState([])
+  const [projects, setProjects] = useState([])
+  const [activities, setActivities] = useState([])
+
   const [showForm, setShowForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
-  const [draggingType, setDraggingType] = useState(null)
+
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
   const [form, setForm] = useState({
     reportId: "",
+    projectId: "",
     date: "",
     sourceType: "Daily Report",
     discipline: "Civil",
@@ -71,61 +135,198 @@ const Reports = () => {
     evidence: null,
   })
 
-  const submitReport = (e) => {
+
+  // ========================================
+  // LOAD BACKEND DATA
+  // ========================================
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function loadData() {
+    try {
+      setLoading(true)
+      setError("")
+
+      const [reportsResponse, projectsResponse, activitiesResponse] =
+        await Promise.all([
+          getFieldReports(),
+          getProjects(),
+          getActivities(),
+        ])
+
+      setReports(reportsResponse.data || [])
+      setProjects(projectsResponse.data || [])
+      setActivities(activitiesResponse.data || [])
+
+      // Automatically select the first project
+      if (
+        projectsResponse.data &&
+        projectsResponse.data.length > 0
+      ) {
+        setForm((prev) => ({
+          ...prev,
+          projectId: prev.projectId || String(projectsResponse.data[0].id),
+        }))
+      }
+
+    } catch (err) {
+      console.error("Failed to load field report data:", err)
+      setError(err.message || "Failed to load field reports")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  // ========================================
+  // SUBMIT FIELD REPORT
+  // ========================================
+
+  async function submitReport(e) {
     e.preventDefault()
 
-    const newReport = {
-      id: form.reportId,
-      date: form.date,
-      sourceType: form.sourceType,
-      discipline: form.discipline,
-      activity: form.activityId || "Pending AI Match",
-      progress: form.progress
-        ? `${form.progress}%`
-        : "—",
-      processingStatus: "Pending",
-      extractionStatus: "Pending",
-      matchingStatus: "Pending",
-      confidence: "Pending",
+    if (!form.projectId) {
+      alert("Please select a project.")
+      return
     }
 
-    setReports([newReport, ...reports])
+    if (!form.reportId.trim()) {
+      alert("Please enter a Report ID.")
+      return
+    }
 
-    setForm({
-      reportId: "",
-      date: "",
-      sourceType: "Daily Report",
-      discipline: "Civil",
-      activityId: "",
-      progress: "",
-      constraint: "",
-      executionUpdate: "",
-      evidence: null,
-    })
+    if (!form.date) {
+      alert("Please select a report date.")
+      return
+    }
 
-    setSelectedFile(null)
-    setShowForm(false)
+    if (!form.executionUpdate.trim() && !form.activityId.trim()) {
+      alert(
+        "Please enter an activity ID or provide an execution update."
+      )
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      setError("")
+
+      // Resolve activity code to database ID.
+      let selectedActivity = null
+
+      if (form.activityId.trim()) {
+        selectedActivity = activities.find(
+          (activity) =>
+            String(activity.activity_code).toLowerCase() ===
+            form.activityId.trim().toLowerCase()
+        )
+
+        if (!selectedActivity) {
+          alert(
+            `Activity "${form.activityId}" was not found in the selected project.`
+          )
+          setSubmitting(false)
+          return
+        }
+
+        if (
+          String(selectedActivity.project_id) !==
+          String(form.projectId)
+        ) {
+          alert(
+            "The selected activity does not belong to the selected project."
+          )
+          setSubmitting(false)
+          return
+        }
+      }
+
+      const descriptionParts = []
+
+      if (form.executionUpdate.trim()) {
+        descriptionParts.push(form.executionUpdate.trim())
+      }
+
+      if (form.constraint.trim()) {
+        descriptionParts.push(
+          `Constraint/Observation: ${form.constraint.trim()}`
+        )
+      }
+
+      const description =
+        descriptionParts.join("\n") ||
+        selectedActivity?.description ||
+        "Field execution update"
+
+      const payload = {
+        report_code: form.reportId.trim(),
+        project_id: Number(form.projectId),
+        activity_id: selectedActivity
+          ? Number(selectedActivity.id)
+          : null,
+        report_date: form.date,
+        location: "Project Site",
+        description,
+        reported_progress:
+          form.progress === ""
+            ? null
+            : Number(form.progress),
+        discipline: form.discipline,
+        source_type: form.sourceType,
+      }
+
+      const response = await createFieldReport(payload)
+
+      if (!response.success) {
+        throw new Error(
+          response.message || "Failed to create field report"
+        )
+      }
+
+      alert("Field report submitted successfully.")
+
+      // Reload reports from PostgreSQL.
+      const reportsResponse = await getFieldReports()
+      setReports(reportsResponse.data || [])
+
+      // Reset form.
+      setForm({
+        reportId: "",
+        projectId: form.projectId,
+        date: "",
+        sourceType: "Daily Report",
+        discipline: "Civil",
+        activityId: "",
+        progress: "",
+        constraint: "",
+        executionUpdate: "",
+        evidence: null,
+      })
+
+      setSelectedFile(null)
+      setShowForm(false)
+
+    } catch (err) {
+      console.error("Failed to submit field report:", err)
+
+      setError(
+        err.message || "Failed to submit field report"
+      )
+
+      alert(
+        err.message || "Failed to submit field report"
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const statusClass = (status) => {
-    if (
-      status === "Complete" ||
-      status === "Processed" ||
-      status === "Matched"
-    ) {
-      return "text-green-400"
-    }
 
-    if (status === "Needs Review") {
-      return "text-yellow-400"
-    }
-
-    if (status === "Pending") {
-      return "text-gray-400"
-    }
-
-    return "text-red-400"
-  }
+  // ========================================
+  // FILE SELECTION
+  // ========================================
 
   const selectFile = (file, sourceType) => {
     if (!file) return
@@ -140,32 +341,12 @@ const Reports = () => {
     setShowForm(true)
   }
 
-  const handleDragOver = (e, sourceType) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDraggingType(sourceType)
-  }
 
-  const handleDragLeave = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDraggingType(null)
-  }
+  // ========================================
+  // RESET FORM
+  // ========================================
 
-  const handleDrop = (e, sourceType) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    setDraggingType(null)
-
-    const file = e.dataTransfer.files?.[0]
-
-    if (!file) return
-
-    selectFile(file, sourceType)
-  }
-
-  const openManualForm = () => {
+  function openManualForm() {
     setSelectedFile(null)
 
     setForm((prev) => ({
@@ -176,58 +357,19 @@ const Reports = () => {
     setShowForm(true)
   }
 
-  const uploadCardClass = (type) => `
-    cursor-pointer
-    rounded-xl
-    border
-    bg-[#151b24]
-    p-4
-    text-left
-    transition
-    sm:p-5
-    ${
-      draggingType === type
-        ? "border-blue-500 bg-blue-500/10"
-        : "border-[#252d38] hover:border-[#3a4655] hover:bg-[#1b2430]"
-    }
-  `
 
   return (
-    <div className="w-full pb-10">
+    <div className="pb-10">
 
-      {/* HEADER */}
+      {/* Header */}
+      <div className="flex items-center justify-between">
 
-      <div
-        className="
-          flex
-          flex-col
-          gap-4
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
-        "
-      >
-        <div className="min-w-0">
-          <h2
-            className="
-              text-xl
-              font-semibold
-              text-white
-              sm:text-2xl
-            "
-          >
+        <div>
+          <h2 className="text-2xl font-semibold text-white">
             Field Reports
           </h2>
 
-          <p
-            className="
-              mt-1
-              text-xs
-              text-gray-400
-              sm:mt-2
-              sm:text-sm
-            "
-          >
+          <p className="text-gray-400 mt-2">
             Capture and reconcile field execution information
           </p>
         </div>
@@ -237,119 +379,61 @@ const Reports = () => {
           onClick={() => {
             if (showForm) {
               setShowForm(false)
-              return
+            } else {
+              openManualForm()
             }
-
-            openManualForm()
           }}
-          className="
-            w-full
-            rounded-lg
-            bg-blue-600
-            px-4
-            py-2.5
-            text-sm
-            text-white
-            transition
-            hover:bg-blue-700
-            sm:w-auto
-            sm:shrink-0
-          "
+          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
         >
           {showForm ? "Close" : "+ Add Field Update"}
         </button>
+
       </div>
 
 
-      {/* INPUT SOURCES */}
+      {/* Error */}
+      {error && (
+        <div className="mt-6 bg-[#151b24] border border-red-500/30 rounded-xl p-4">
+          <p className="text-red-400 text-sm">
+            {error}
+          </p>
+        </div>
+      )}
 
-      <div className="mt-6 sm:mt-8">
 
-        <p className="mb-3 text-[10px] text-gray-500 sm:text-xs">
+      {/* Input Sources */}
+      <div className="mt-8">
+
+        <p className="text-xs text-gray-500 mb-3">
           FIELD INPUT SOURCES
         </p>
 
-        <div
-          className="
-            grid
-            grid-cols-1
-            gap-3
-            md:grid-cols-3
-            md:gap-4
-          "
-        >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* DAILY REPORT */}
+          {/* Daily Report */}
+          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
 
-          <label
-            onDragOver={(e) =>
-              handleDragOver(e, "Daily Report")
-            }
-            onDragEnter={(e) =>
-              handleDragOver(e, "Daily Report")
-            }
-            onDragLeave={handleDragLeave}
-            onDrop={(e) =>
-              handleDrop(e, "Daily Report")
-            }
-            className={uploadCardClass("Daily Report")}
-          >
-            <div
-              className="
-                flex
-                items-start
-                justify-between
-                gap-3
-              "
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">
+            <div className="flex items-start justify-between">
+
+              <div>
+                <p className="text-white font-medium">
                   Daily Report
                 </p>
 
-                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
+                <p className="text-gray-400 text-sm mt-2">
                   Upload DPR / daily site execution report
                 </p>
               </div>
 
-              <span className="shrink-0 text-lg text-gray-500">
+              <span className="text-gray-500 text-lg">
                 ↑
               </span>
+
             </div>
 
-            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
+            <p className="text-xs text-gray-500 mt-4">
               PDF / DOCX / XLSX
             </p>
-
-            {/* DRAG DROP AREA */}
-
-            <div
-              className={`
-                mt-4
-                rounded-lg
-                border
-                border-dashed
-                px-4
-                py-5
-                text-center
-                transition
-                ${
-                  draggingType === "Daily Report"
-                    ? "border-blue-500 text-blue-400"
-                    : "border-[#303946] text-gray-500"
-                }
-              `}
-            >
-              <p className="text-xs sm:text-sm">
-                {draggingType === "Daily Report"
-                  ? "Drop file here"
-                  : "Drag & drop file here"}
-              </p>
-
-              <p className="mt-1 text-[10px] text-gray-600 sm:text-xs">
-                or click to browse
-              </p>
-            </div>
 
             <input
               type="file"
@@ -367,99 +451,46 @@ const Reports = () => {
 
             {selectedFile &&
               form.sourceType === "Daily Report" && (
-                <div
-                  className="
-                    mt-4
-                    rounded-lg
-                    border
-                    border-[#252d38]
-                    bg-[#10151c]
-                    p-3
-                  "
-                >
+                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
+
                   <p className="text-xs text-green-400">
                     File selected
                   </p>
 
-                  <p className="mt-1 truncate text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mt-1 truncate">
                     {selectedFile.name}
                   </p>
+
                 </div>
               )}
+
           </label>
 
 
-          {/* SPREADSHEET */}
+          {/* Spreadsheet */}
+          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
 
-          <label
-            onDragOver={(e) =>
-              handleDragOver(e, "Spreadsheet")
-            }
-            onDragEnter={(e) =>
-              handleDragOver(e, "Spreadsheet")
-            }
-            onDragLeave={handleDragLeave}
-            onDrop={(e) =>
-              handleDrop(e, "Spreadsheet")
-            }
-            className={uploadCardClass("Spreadsheet")}
-          >
-            <div
-              className="
-                flex
-                items-start
-                justify-between
-                gap-3
-              "
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">
+            <div className="flex items-start justify-between">
+
+              <div>
+                <p className="text-white font-medium">
                   Spreadsheet
                 </p>
 
-                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
+                <p className="text-gray-400 text-sm mt-2">
                   Import structured progress or field data
                 </p>
               </div>
 
-              <span className="shrink-0 text-lg text-gray-500">
+              <span className="text-gray-500 text-lg">
                 ↑
               </span>
+
             </div>
 
-            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
+            <p className="text-xs text-gray-500 mt-4">
               XLSX / XLS / CSV
             </p>
-
-            {/* DRAG DROP AREA */}
-
-            <div
-              className={`
-                mt-4
-                rounded-lg
-                border
-                border-dashed
-                px-4
-                py-5
-                text-center
-                transition
-                ${
-                  draggingType === "Spreadsheet"
-                    ? "border-blue-500 text-blue-400"
-                    : "border-[#303946] text-gray-500"
-                }
-              `}
-            >
-              <p className="text-xs sm:text-sm">
-                {draggingType === "Spreadsheet"
-                  ? "Drop file here"
-                  : "Drag & drop file here"}
-              </p>
-
-              <p className="mt-1 text-[10px] text-gray-600 sm:text-xs">
-                or click to browse
-              </p>
-            </div>
 
             <input
               type="file"
@@ -477,159 +508,104 @@ const Reports = () => {
 
             {selectedFile &&
               form.sourceType === "Spreadsheet" && (
-                <div
-                  className="
-                    mt-4
-                    rounded-lg
-                    border
-                    border-[#252d38]
-                    bg-[#10151c]
-                    p-3
-                  "
-                >
+                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
+
                   <p className="text-xs text-green-400">
                     File selected
                   </p>
 
-                  <p className="mt-1 truncate text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mt-1 truncate">
                     {selectedFile.name}
                   </p>
+
                 </div>
               )}
+
           </label>
 
 
-          {/* MANUAL */}
-
+          {/* Manual Field Update */}
           <button
             type="button"
             onClick={openManualForm}
-            className="
-              rounded-xl
-              border
-              border-[#252d38]
-              bg-[#151b24]
-              p-4
-              text-left
-              transition
-              hover:border-[#3a4655]
-              hover:bg-[#1b2430]
-              sm:p-5
-            "
+            className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
           >
-            <div
-              className="
-                flex
-                items-start
-                justify-between
-                gap-3
-              "
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">
+
+            <div className="flex items-start justify-between">
+
+              <div>
+                <p className="text-white font-medium">
                   Manual Field Update
                 </p>
 
-                <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm">
+                <p className="text-gray-400 text-sm mt-2">
                   Enter an execution update directly
                 </p>
               </div>
 
-              <span className="shrink-0 text-lg text-gray-500">
+              <span className="text-gray-500 text-lg">
                 +
               </span>
+
             </div>
 
-            <p className="mt-4 text-[10px] text-gray-500 sm:text-xs">
+            <p className="text-xs text-gray-500 mt-4">
               Manual Entry
             </p>
+
           </button>
 
         </div>
+
       </div>
 
 
-      {/* ADD FIELD UPDATE FORM */}
-
+      {/* Add Field Update Form */}
       {showForm && (
         <form
           onSubmit={submitReport}
-          className="
-            mt-6
-            rounded-xl
-            border
-            border-[#252d38]
-            bg-[#151b24]
-            p-4
-            sm:mt-8
-            sm:p-6
-          "
+          className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6"
         >
 
           <div>
-            <h3 className="text-base font-semibold text-white sm:text-lg">
+            <h3 className="text-lg font-semibold text-white">
               Add Field Update
             </h3>
 
-            <p className="mt-1 text-xs text-gray-400 sm:text-sm">
+            <p className="text-gray-400 text-sm mt-1">
               Provide field execution information for BharatForge reconciliation.
             </p>
           </div>
 
 
-          {/* SELECTED FILE */}
-
+          {/* Selected File */}
           {selectedFile && (
-            <div
-              className="
-                mt-4
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                sm:mt-5
-                sm:p-4
-              "
-            >
-              <p className="text-[10px] text-gray-500 sm:text-xs">
+            <div className="mt-5 bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
                 SELECTED FILE
               </p>
 
-              <div
-                className="
-                  mt-2
-                  flex
-                  items-center
-                  justify-between
-                  gap-3
-                "
-              >
-                <p className="min-w-0 truncate text-xs text-white sm:text-sm">
+              <div className="flex items-center justify-between mt-2">
+
+                <p className="text-sm text-white truncate">
                   {selectedFile.name}
                 </p>
 
-                <span className="shrink-0 text-[10px] text-green-400 sm:text-xs">
+                <span className="text-xs text-green-400 ml-4">
                   Ready
                 </span>
+
               </div>
+
             </div>
           )}
 
 
-          {/* BASIC INFORMATION */}
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
 
-          <div
-            className="
-              mt-5
-              grid
-              grid-cols-1
-              gap-3
-              sm:mt-6
-              sm:grid-cols-2
-              lg:grid-cols-4
-            "
-          >
+            {/* Report ID */}
             <input
               required
               placeholder="Report ID"
@@ -640,20 +616,39 @@ const Reports = () => {
                   reportId: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-white
-                outline-none
-                focus:border-blue-500
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
 
+
+            {/* Project */}
+            <select
+              required
+              value={form.projectId}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  projectId: e.target.value,
+                  activityId: "",
+                })
+              }
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
+            >
+              <option value="">
+                Select Project
+              </option>
+
+              {projects.map((project) => (
+                <option
+                  key={project.id}
+                  value={project.id}
+                >
+                  {project.project_code} — {project.name}
+                </option>
+              ))}
+            </select>
+
+
+            {/* Date */}
             <input
               required
               type="date"
@@ -664,20 +659,11 @@ const Reports = () => {
                   date: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-white
-                outline-none
-                focus:border-blue-500
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
 
+
+            {/* Source Type */}
             <select
               value={form.sourceType}
               onChange={(e) =>
@@ -686,25 +672,20 @@ const Reports = () => {
                   sourceType: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-gray-300
-                outline-none
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
             >
               {sourceTypes.map((type) => (
-                <option key={type} value={type}>
+                <option
+                  key={type}
+                  value={type}
+                >
                   {type}
                 </option>
               ))}
             </select>
 
+
+            {/* Discipline */}
             <select
               value={form.discipline}
               onChange={(e) =>
@@ -713,41 +694,26 @@ const Reports = () => {
                   discipline: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-gray-300
-                outline-none
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
             >
               {disciplines.map((item) => (
-                <option key={item} value={item}>
+                <option
+                  key={item}
+                  value={item}
+                >
                   {item}
                 </option>
               ))}
             </select>
+
           </div>
 
 
-          {/* ACTIVITY INFORMATION */}
+          {/* Activity + Progress */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 
-          <div
-            className="
-              mt-3
-              grid
-              grid-cols-1
-              gap-3
-              sm:mt-4
-              sm:grid-cols-2
-            "
-          >
             <input
-              placeholder="Activity ID (optional)"
+              placeholder="Activity ID (e.g. L6-ELEC-001) — optional"
               value={form.activityId}
               onChange={(e) =>
                 setForm({
@@ -755,18 +721,7 @@ const Reports = () => {
                   activityId: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-white
-                outline-none
-                focus:border-blue-500
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
 
             <input
@@ -781,24 +736,13 @@ const Reports = () => {
                   progress: e.target.value,
                 })
               }
-              className="
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-3
-                text-sm
-                text-white
-                outline-none
-                focus:border-blue-500
-              "
+              className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
+
           </div>
 
 
-          {/* EXECUTION UPDATE */}
-
+          {/* Execution Update */}
           <textarea
             placeholder="Execution update / work description"
             value={form.executionUpdate}
@@ -809,26 +753,11 @@ const Reports = () => {
               })
             }
             rows="4"
-            className="
-              mt-3
-              w-full
-              resize-none
-              rounded-lg
-              border
-              border-[#252d38]
-              bg-[#10151c]
-              p-3
-              text-sm
-              text-white
-              outline-none
-              focus:border-blue-500
-              sm:mt-4
-            "
+            className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none resize-none"
           />
 
 
-          {/* CONSTRAINT */}
-
+          {/* Constraint */}
           <input
             placeholder="Material / constraint / observation (optional)"
             value={form.constraint}
@@ -838,26 +767,13 @@ const Reports = () => {
                 constraint: e.target.value,
               })
             }
-            className="
-              mt-3
-              w-full
-              rounded-lg
-              border
-              border-[#252d38]
-              bg-[#10151c]
-              p-3
-              text-sm
-              text-white
-              outline-none
-              focus:border-blue-500
-              sm:mt-4
-            "
+            className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
           />
 
 
-          {/* EVIDENCE */}
-
+          {/* Evidence */}
           <div className="mt-4">
+
             <label className="text-sm text-gray-300">
               Supporting Evidence
             </label>
@@ -868,190 +784,102 @@ const Reports = () => {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  evidence:
-                    e.target.files?.[0] || null,
+                  evidence: e.target.files?.[0] || null,
                 })
               }
-              className="
-                mt-2
-                w-full
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-2.5
-                text-xs
-                text-gray-400
-                sm:p-3
-                sm:text-sm
-              "
+              className="w-full mt-2 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-sm text-gray-400"
             />
+
           </div>
 
 
-          {/* SUBMIT */}
-
           <button
             type="submit"
-            className="
-              mt-5
-              w-full
-              rounded-lg
-              bg-green-600
-              px-5
-              py-2.5
-              text-sm
-              text-white
-              transition
-              hover:bg-green-700
-              sm:mt-6
-              sm:w-auto
-            "
+            disabled={submitting}
+            className="mt-6 px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition"
           >
-            Submit Field Update
+            {submitting
+              ? "Submitting..."
+              : "Submit Field Update"}
           </button>
 
         </form>
       )}
 
 
-      {/* PROCESSING PIPELINE */}
+      {/* Processing Pipeline */}
+      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-      <div
-        className="
-          mt-6
-          rounded-xl
-          border
-          border-[#252d38]
-          bg-[#151b24]
-          p-4
-          sm:mt-8
-          sm:p-6
-        "
-      >
-        <h3 className="text-base font-semibold text-white sm:text-lg">
+        <h3 className="text-lg font-semibold text-white">
           Field Report Processing
         </h3>
 
-        <p className="mt-1 text-xs text-gray-400 sm:text-sm">
+        <p className="text-gray-400 text-sm mt-1">
           Each field input moves through extraction and activity matching.
         </p>
 
-        <div
-          className="
-            mt-5
-            grid
-            grid-cols-1
-            gap-3
-            md:grid-cols-3
-            md:gap-4
-            sm:mt-6
-          "
-        >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 
-          <div
-            className="
-              rounded-lg
-              border
-              border-[#252d38]
-              bg-[#10151c]
-              p-4
-            "
-          >
-            <p className="text-[10px] text-gray-500 sm:text-xs">
+          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+            <p className="text-xs text-gray-500">
               STEP 01
             </p>
 
-            <p className="mt-2 text-sm font-medium text-white">
+            <p className="text-white font-medium mt-2">
               Extraction
             </p>
 
-            <p className="mt-1 text-xs leading-5 text-gray-500">
+            <p className="text-gray-500 text-xs mt-1">
               Convert field information into structured data.
             </p>
           </div>
 
 
-          <div
-            className="
-              rounded-lg
-              border
-              border-[#252d38]
-              bg-[#10151c]
-              p-4
-            "
-          >
-            <p className="text-[10px] text-gray-500 sm:text-xs">
+          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+            <p className="text-xs text-gray-500">
               STEP 02
             </p>
 
-            <p className="mt-2 text-sm font-medium text-white">
+            <p className="text-white font-medium mt-2">
               Activity Matching
             </p>
 
-            <p className="mt-1 text-xs leading-5 text-gray-500">
+            <p className="text-gray-500 text-xs mt-1">
               Map the field update to the relevant L5/L6 activity.
             </p>
           </div>
 
 
-          <div
-            className="
-              rounded-lg
-              border
-              border-[#252d38]
-              bg-[#10151c]
-              p-4
-            "
-          >
-            <p className="text-[10px] text-gray-500 sm:text-xs">
+          <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+            <p className="text-xs text-gray-500">
               STEP 03
             </p>
 
-            <p className="mt-2 text-sm font-medium text-white">
+            <p className="text-white font-medium mt-2">
               Verification
             </p>
 
-            <p className="mt-1 text-xs leading-5 text-gray-500">
+            <p className="text-gray-500 text-xs mt-1">
               Route uncertain or conflicting updates for review.
             </p>
           </div>
 
         </div>
+
       </div>
 
 
-      {/* REPORT RECORDS */}
+      {/* Reports Table */}
+      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-      <div
-        className="
-          mt-6
-          rounded-xl
-          border
-          border-[#252d38]
-          bg-[#151b24]
-          p-4
-          sm:mt-8
-          sm:p-6
-        "
-      >
+        <div className="flex items-center justify-between">
 
-        <div
-          className="
-            flex
-            flex-col
-            gap-2
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-          "
-        >
           <div>
-            <h3 className="text-base font-semibold text-white sm:text-lg">
+            <h3 className="text-lg font-semibold text-white">
               Field Report Records
             </h3>
 
-            <p className="mt-1 text-xs text-gray-400 sm:text-sm">
+            <p className="text-gray-400 text-sm mt-1">
               Current execution inputs and reconciliation status
             </p>
           </div>
@@ -1059,349 +887,221 @@ const Reports = () => {
           <span className="text-xs text-gray-500">
             {reports.length} Records
           </span>
+
         </div>
 
 
-        {/* DESKTOP / TABLET TABLE */}
+        <div className="mt-6 overflow-x-auto">
 
-        <div className="mt-5 hidden overflow-x-auto md:block sm:mt-6">
-          <table className="w-full min-w-262.5 text-sm">
-
-            <thead>
-              <tr className="border-b border-[#252d38] text-left">
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Report
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Source
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Discipline
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Date
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Activity
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Progress
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Processing
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Extraction
-                </th>
-
-                <th className="pb-3 pr-5 font-medium text-gray-500">
-                  Matching
-                </th>
-
-                <th className="pb-3 font-medium text-gray-500">
-                  Confidence
-                </th>
-
-              </tr>
-            </thead>
-
-
-            <tbody>
-              {reports.map((report) => (
-                <tr
-                  key={report.id}
-                  className="border-b border-[#252d38] last:border-0"
-                >
-                  <td className="py-4 pr-5 font-medium text-white">
-                    {report.id}
-                  </td>
-
-                  <td className="py-4 pr-5 text-gray-300">
-                    {report.sourceType}
-                  </td>
-
-                  <td className="py-4 pr-5 text-gray-400">
-                    {report.discipline}
-                  </td>
-
-                  <td className="whitespace-nowrap py-4 pr-5 text-gray-400">
-                    {report.date}
-                  </td>
-
-                  <td className="py-4 pr-5 text-white">
-                    {report.activity}
-                  </td>
-
-                  <td className="py-4 pr-5 text-gray-300">
-                    {report.progress}
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span
-                      className={statusClass(
-                        report.processingStatus
-                      )}
-                    >
-                      {report.processingStatus}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span
-                      className={statusClass(
-                        report.extractionStatus
-                      )}
-                    >
-                      {report.extractionStatus}
-                    </span>
-                  </td>
-
-                  <td className="py-4 pr-5">
-                    <span
-                      className={statusClass(
-                        report.matchingStatus
-                      )}
-                    >
-                      {report.matchingStatus}
-                    </span>
-                  </td>
-
-                  <td className="py-4 text-gray-300">
-                    {report.confidence}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-        </div>
-
-
-        {/* MOBILE REPORT CARDS */}
-
-        <div className="mt-5 space-y-3 md:hidden">
-
-          {reports.map((report) => (
-            <div
-              key={report.id}
-              className="
-                rounded-lg
-                border
-                border-[#252d38]
-                bg-[#10151c]
-                p-4
-              "
-            >
-
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-3
-                "
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">
-                    {report.id}
-                  </p>
-
-                  <p className="mt-1 truncate text-xs text-gray-500">
-                    {report.activity}
-                  </p>
-                </div>
-
-                <span
-                  className={`
-                    shrink-0
-                    text-xs
-                    font-medium
-                    ${statusClass(report.matchingStatus)}
-                  `}
-                >
-                  {report.matchingStatus}
-                </span>
-              </div>
-
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-2
-                  gap-3
-                  border-t
-                  border-[#252d38]
-                  pt-3
-                "
-              >
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Source
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-300">
-                    {report.sourceType}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Discipline
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-300">
-                    {report.discipline}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Date
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {report.date}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Progress
-                  </p>
-
-                  <p className="mt-1 text-xs text-white">
-                    {report.progress}
-                  </p>
-                </div>
-              </div>
-
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-2
-                  gap-3
-                  border-t
-                  border-[#252d38]
-                  pt-3
-                "
-              >
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Processing
-                  </p>
-
-                  <p
-                    className={`
-                      mt-1
-                      text-xs
-                      ${statusClass(
-                        report.processingStatus
-                      )}
-                    `}
-                  >
-                    {report.processingStatus}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Extraction
-                  </p>
-
-                  <p
-                    className={`
-                      mt-1
-                      text-xs
-                      ${statusClass(
-                        report.extractionStatus
-                      )}
-                    `}
-                  >
-                    {report.extractionStatus}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Matching
-                  </p>
-
-                  <p
-                    className={`
-                      mt-1
-                      text-xs
-                      ${statusClass(
-                        report.matchingStatus
-                      )}
-                    `}
-                  >
-                    {report.matchingStatus}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-gray-600">
-                    Confidence
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-300">
-                    {report.confidence}
-                  </p>
-                </div>
-              </div>
-
+          {loading ? (
+            <div className="py-10 text-center">
+              <p className="text-gray-400 text-sm">
+                Loading field reports...
+              </p>
             </div>
-          ))}
+          ) : (
+            <table className="w-full text-sm">
+
+              <thead>
+                <tr className="border-b border-[#252d38] text-left">
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Report
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Source
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Discipline
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Date
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Activity
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Progress
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Processing
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Extraction
+                  </th>
+
+                  <th className="pb-3 pr-5 text-gray-500 font-medium">
+                    Matching
+                  </th>
+
+                  <th className="pb-3 text-gray-500 font-medium">
+                    Confidence
+                  </th>
+
+                </tr>
+              </thead>
+
+
+              <tbody>
+
+                {reports.map((report) => {
+
+                  const matchingStatus =
+                    formatMatchingStatus(
+                      report.matching_status
+                    )
+
+                  return (
+                    <tr
+                      key={report.id}
+                      className="border-b border-[#252d38] last:border-0"
+                    >
+
+                      <td className="py-4 pr-5">
+                        <p className="text-white font-medium">
+                          {report.report_code}
+                        </p>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-300">
+                          {report.source_type || "—"}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-400">
+                          {report.discipline || "—"}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-400">
+                          {formatDate(report.report_date)}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <p className="text-white">
+                          {report.activity_name ||
+                            report.activity_code ||
+                            "Pending AI Match"}
+                        </p>
+
+                        {report.activity_code && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {report.activity_code}
+                          </p>
+                        )}
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span className="text-gray-300">
+                          {formatProgress(
+                            report.reported_progress
+                          )}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span
+                          className={statusClass(
+                            formatProcessingStatus(report)
+                          )}
+                        >
+                          {formatProcessingStatus(report)}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span
+                          className={statusClass(
+                            formatExtractionStatus(report)
+                          )}
+                        >
+                          {formatExtractionStatus(report)}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4 pr-5">
+                        <span
+                          className={statusClass(
+                            matchingStatus
+                          )}
+                        >
+                          {matchingStatus}
+                        </span>
+                      </td>
+
+
+                      <td className="py-4">
+                        <span className="text-gray-300">
+                          {report.match_confidence !== null &&
+                          report.match_confidence !== undefined
+                            ? `${Number(
+                                report.match_confidence
+                              )}%`
+                            : "—"}
+                        </span>
+                      </td>
+
+                    </tr>
+                  )
+                })}
+
+              </tbody>
+
+            </table>
+          )}
 
         </div>
+
+
+        {!loading && reports.length === 0 && (
+          <div className="py-10 text-center">
+
+            <p className="text-gray-400 text-sm">
+              No field reports found
+            </p>
+
+            <p className="text-gray-600 text-xs mt-1">
+              Add a field update to create the first report.
+            </p>
+
+          </div>
+        )}
 
       </div>
 
 
-      {/* ARCHITECTURE NOTE */}
+      {/* Architecture Note */}
+      <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-5">
 
-      <div
-        className="
-          mt-6
-          rounded-xl
-          border
-          border-[#252d38]
-          bg-[#151b24]
-          p-4
-          sm:mt-8
-          sm:p-5
-        "
-      >
-        <p className="text-[10px] text-gray-500 sm:text-xs">
+        <p className="text-xs text-gray-500">
           RECONCILIATION PIPELINE
         </p>
 
-        <p
-          className="
-            mt-2
-            text-xs
-            leading-5
-            text-gray-300
-            sm:text-sm
-            sm:leading-6
-          "
-        >
-          Field inputs are converted into structured execution
-          data, matched against the project schedule, and routed
-          to verification when the match or extracted information
-          requires review.
+        <p className="text-sm text-gray-300 mt-2">
+          Field inputs are converted into structured execution data,
+          matched against the project schedule, and routed to verification
+          when the match or extracted information requires review.
         </p>
+
       </div>
 
     </div>
