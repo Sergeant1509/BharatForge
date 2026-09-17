@@ -48,6 +48,35 @@ const inputSources = [
 const Dashboard = () => {
   const [uploadType, setUploadType] = useState(null)
   const [uploadedFiles, setUploadedFiles] = useState({})
+  const [draggingType, setDraggingType] = useState(null)
+
+  const handleDragOver = (e, type) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setDraggingType(type)
+}
+
+const handleDragLeave = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setDraggingType(null)
+}
+
+const handleDrop = (e, type) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  setDraggingType(null)
+
+  const file = e.dataTransfer.files?.[0]
+
+  if (!file) return
+
+  setUploadedFiles((prev) => ({
+    ...prev,
+    [type]: file.name,
+  }))
+}
   return (
     <div className="pb-10">
 
@@ -148,47 +177,91 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          {inputSources.map((source) => (
-            <button
-              key={source.title}
-              type="button"
-              onClick={() => setUploadType(source.title)}
-              className="text-left bg-[#10151c] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-white font-medium">
-                    {source.title}
-                  </p>
+  {inputSources.map((source) => (
+    <div
+      key={source.title}
+      onDragOver={(e) => handleDragOver(e, source.title)}
+      onDragEnter={(e) => handleDragOver(e, source.title)}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => handleDrop(e, source.title)}
+      onClick={() => setUploadType(source.title)}
+      className={`
+        text-left
+        bg-[#10151c]
+        border
+        rounded-xl
+        p-5
+        cursor-pointer
+        transition
+        ${
+          draggingType === source.title
+            ? "border-blue-500 bg-blue-500/10"
+            : "border-[#252d38] hover:bg-[#1b2430] hover:border-[#3a4655]"
+        }
+      `}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-white font-medium">
+            {source.title}
+          </p>
 
-                  <p className="text-gray-400 text-sm mt-2">
-                    {source.description}
-                  </p>
-                </div>
-
-                <span className="text-gray-500 text-lg">
-                  +
-                </span>
-              </div>
-
-              <p className="text-xs text-gray-500 mt-4">
-                {source.formats}
-              </p>
-             {uploadedFiles[source.title] && (
-              <div className="mt-3">
-                <p className="text-xs text-green-400">
-                  ✓ Uploaded
-                </p>
-
-                <p className="text-xs text-gray-500 mt-1 truncate">
-                  {uploadedFiles[source.title]}
-                </p>
-              </div>
-            )}
-            </button>
-            
-          ))}
+          <p className="text-gray-400 text-sm mt-2">
+            {source.description}
+          </p>
         </div>
+
+        <span className="text-gray-500 text-lg">
+          +
+        </span>
+      </div>
+
+      <div
+        className={`
+          mt-5
+          border
+          border-dashed
+          rounded-lg
+          px-4
+          py-5
+          text-center
+          transition
+          ${
+            draggingType === source.title
+              ? "border-blue-500 text-blue-400"
+              : "border-[#303946] text-gray-500"
+          }
+        `}
+      >
+        <p className="text-sm">
+          {draggingType === source.title
+            ? "Drop file here"
+            : "Drag & drop file here"}
+        </p>
+
+        <p className="text-xs mt-1 text-gray-600">
+          or click to browse
+        </p>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-4">
+        {source.formats}
+      </p>
+
+      {uploadedFiles[source.title] && (
+        <div className="mt-3">
+          <p className="text-xs text-green-400">
+            ✓ Uploaded
+          </p>
+
+          <p className="text-xs text-gray-500 mt-1 truncate">
+            {uploadedFiles[source.title]}
+          </p>
+        </div>
+      )}
+    </div>
+  ))}
+</div>
       </div>
 
       {/* Progress Trend */}

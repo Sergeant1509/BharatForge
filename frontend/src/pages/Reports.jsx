@@ -57,6 +57,7 @@ const Reports = () => {
   const [reports, setReports] = useState(initialReports)
   const [showForm, setShowForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
+  const [draggingType, setDraggingType] = useState(null)
 
   const [form, setForm] = useState({
     reportId: "",
@@ -139,6 +140,31 @@ const Reports = () => {
     setShowForm(true)
   }
 
+  const handleDragOver = (e, sourceType) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDraggingType(sourceType)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDraggingType(null)
+  }
+
+  const handleDrop = (e, sourceType) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    setDraggingType(null)
+
+    const file = e.dataTransfer.files?.[0]
+
+    if (!file) return
+
+    selectFile(file, sourceType)
+  }
+
   const openManualForm = () => {
     setSelectedFile(null)
 
@@ -150,12 +176,26 @@ const Reports = () => {
     setShowForm(true)
   }
 
+  const uploadCardClass = (type) => `
+    cursor-pointer
+    rounded-xl
+    border
+    bg-[#151b24]
+    p-4
+    text-left
+    transition
+    sm:p-5
+    ${
+      draggingType === type
+        ? "border-blue-500 bg-blue-500/10"
+        : "border-[#252d38] hover:border-[#3a4655] hover:bg-[#1b2430]"
+    }
+  `
+
   return (
     <div className="w-full pb-10">
 
-      {/* =========================
-          HEADER
-      ========================== */}
+      {/* HEADER */}
 
       <div
         className="
@@ -221,9 +261,7 @@ const Reports = () => {
       </div>
 
 
-      {/* =========================
-          INPUT SOURCES
-      ========================== */}
+      {/* INPUT SOURCES */}
 
       <div className="mt-6 sm:mt-8">
 
@@ -244,18 +282,17 @@ const Reports = () => {
           {/* DAILY REPORT */}
 
           <label
-            className="
-              cursor-pointer
-              rounded-xl
-              border border-[#252d38]
-              bg-[#151b24]
-              p-4
-              text-left
-              transition
-              hover:border-[#3a4655]
-              hover:bg-[#1b2430]
-              sm:p-5
-            "
+            onDragOver={(e) =>
+              handleDragOver(e, "Daily Report")
+            }
+            onDragEnter={(e) =>
+              handleDragOver(e, "Daily Report")
+            }
+            onDragLeave={handleDragLeave}
+            onDrop={(e) =>
+              handleDrop(e, "Daily Report")
+            }
+            className={uploadCardClass("Daily Report")}
           >
             <div
               className="
@@ -284,6 +321,36 @@ const Reports = () => {
               PDF / DOCX / XLSX
             </p>
 
+            {/* DRAG DROP AREA */}
+
+            <div
+              className={`
+                mt-4
+                rounded-lg
+                border
+                border-dashed
+                px-4
+                py-5
+                text-center
+                transition
+                ${
+                  draggingType === "Daily Report"
+                    ? "border-blue-500 text-blue-400"
+                    : "border-[#303946] text-gray-500"
+                }
+              `}
+            >
+              <p className="text-xs sm:text-sm">
+                {draggingType === "Daily Report"
+                  ? "Drop file here"
+                  : "Drag & drop file here"}
+              </p>
+
+              <p className="mt-1 text-[10px] text-gray-600 sm:text-xs">
+                or click to browse
+              </p>
+            </div>
+
             <input
               type="file"
               accept=".pdf,.doc,.docx,.xlsx,.xls"
@@ -304,7 +371,8 @@ const Reports = () => {
                   className="
                     mt-4
                     rounded-lg
-                    border border-[#252d38]
+                    border
+                    border-[#252d38]
                     bg-[#10151c]
                     p-3
                   "
@@ -324,18 +392,17 @@ const Reports = () => {
           {/* SPREADSHEET */}
 
           <label
-            className="
-              cursor-pointer
-              rounded-xl
-              border border-[#252d38]
-              bg-[#151b24]
-              p-4
-              text-left
-              transition
-              hover:border-[#3a4655]
-              hover:bg-[#1b2430]
-              sm:p-5
-            "
+            onDragOver={(e) =>
+              handleDragOver(e, "Spreadsheet")
+            }
+            onDragEnter={(e) =>
+              handleDragOver(e, "Spreadsheet")
+            }
+            onDragLeave={handleDragLeave}
+            onDrop={(e) =>
+              handleDrop(e, "Spreadsheet")
+            }
+            className={uploadCardClass("Spreadsheet")}
           >
             <div
               className="
@@ -364,6 +431,36 @@ const Reports = () => {
               XLSX / XLS / CSV
             </p>
 
+            {/* DRAG DROP AREA */}
+
+            <div
+              className={`
+                mt-4
+                rounded-lg
+                border
+                border-dashed
+                px-4
+                py-5
+                text-center
+                transition
+                ${
+                  draggingType === "Spreadsheet"
+                    ? "border-blue-500 text-blue-400"
+                    : "border-[#303946] text-gray-500"
+                }
+              `}
+            >
+              <p className="text-xs sm:text-sm">
+                {draggingType === "Spreadsheet"
+                  ? "Drop file here"
+                  : "Drag & drop file here"}
+              </p>
+
+              <p className="mt-1 text-[10px] text-gray-600 sm:text-xs">
+                or click to browse
+              </p>
+            </div>
+
             <input
               type="file"
               accept=".xlsx,.xls,.csv"
@@ -384,7 +481,8 @@ const Reports = () => {
                   className="
                     mt-4
                     rounded-lg
-                    border border-[#252d38]
+                    border
+                    border-[#252d38]
                     bg-[#10151c]
                     p-3
                   "
@@ -408,7 +506,8 @@ const Reports = () => {
             onClick={openManualForm}
             className="
               rounded-xl
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#151b24]
               p-4
               text-left
@@ -450,9 +549,7 @@ const Reports = () => {
       </div>
 
 
-      {/* =========================
-          ADD FIELD UPDATE FORM
-      ========================== */}
+      {/* ADD FIELD UPDATE FORM */}
 
       {showForm && (
         <form
@@ -460,7 +557,8 @@ const Reports = () => {
           className="
             mt-6
             rounded-xl
-            border border-[#252d38]
+            border
+            border-[#252d38]
             bg-[#151b24]
             p-4
             sm:mt-8
@@ -486,7 +584,8 @@ const Reports = () => {
               className="
                 mt-4
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 sm:mt-5
@@ -544,7 +643,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -567,7 +667,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -588,7 +689,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -614,7 +716,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -655,7 +758,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -680,7 +784,8 @@ const Reports = () => {
               className="
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-3
                 text-sm
@@ -709,7 +814,8 @@ const Reports = () => {
               w-full
               resize-none
               rounded-lg
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#10151c]
               p-3
               text-sm
@@ -736,7 +842,8 @@ const Reports = () => {
               mt-3
               w-full
               rounded-lg
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#10151c]
               p-3
               text-sm
@@ -769,7 +876,8 @@ const Reports = () => {
                 mt-2
                 w-full
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-2.5
                 text-xs
@@ -807,15 +915,14 @@ const Reports = () => {
       )}
 
 
-      {/* =========================
-          PROCESSING PIPELINE
-      ========================== */}
+      {/* PROCESSING PIPELINE */}
 
       <div
         className="
           mt-6
           rounded-xl
-          border border-[#252d38]
+          border
+          border-[#252d38]
           bg-[#151b24]
           p-4
           sm:mt-8
@@ -829,7 +936,6 @@ const Reports = () => {
         <p className="mt-1 text-xs text-gray-400 sm:text-sm">
           Each field input moves through extraction and activity matching.
         </p>
-
 
         <div
           className="
@@ -846,7 +952,8 @@ const Reports = () => {
           <div
             className="
               rounded-lg
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#10151c]
               p-4
             "
@@ -868,7 +975,8 @@ const Reports = () => {
           <div
             className="
               rounded-lg
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#10151c]
               p-4
             "
@@ -890,7 +998,8 @@ const Reports = () => {
           <div
             className="
               rounded-lg
-              border border-[#252d38]
+              border
+              border-[#252d38]
               bg-[#10151c]
               p-4
             "
@@ -912,15 +1021,14 @@ const Reports = () => {
       </div>
 
 
-      {/* =========================
-          REPORT RECORDS
-      ========================== */}
+      {/* REPORT RECORDS */}
 
       <div
         className="
           mt-6
           rounded-xl
-          border border-[#252d38]
+          border
+          border-[#252d38]
           bg-[#151b24]
           p-4
           sm:mt-8
@@ -957,7 +1065,7 @@ const Reports = () => {
         {/* DESKTOP / TABLET TABLE */}
 
         <div className="mt-5 hidden overflow-x-auto md:block sm:mt-6">
-          <table className="w-full min-w-[1050px] text-sm">
+          <table className="w-full min-w-262.5 text-sm">
 
             <thead>
               <tr className="border-b border-[#252d38] text-left">
@@ -1086,13 +1194,12 @@ const Reports = () => {
               key={report.id}
               className="
                 rounded-lg
-                border border-[#252d38]
+                border
+                border-[#252d38]
                 bg-[#10151c]
                 p-4
               "
             >
-
-              {/* Header */}
 
               <div
                 className="
@@ -1125,15 +1232,14 @@ const Reports = () => {
               </div>
 
 
-              {/* Basic info */}
-
               <div
                 className="
                   mt-4
                   grid
                   grid-cols-2
                   gap-3
-                  border-t border-[#252d38]
+                  border-t
+                  border-[#252d38]
                   pt-3
                 "
               >
@@ -1179,15 +1285,14 @@ const Reports = () => {
               </div>
 
 
-              {/* Processing */}
-
               <div
                 className="
                   mt-4
                   grid
                   grid-cols-2
                   gap-3
-                  border-t border-[#252d38]
+                  border-t
+                  border-[#252d38]
                   pt-3
                 "
               >
@@ -1264,15 +1369,14 @@ const Reports = () => {
       </div>
 
 
-      {/* =========================
-          ARCHITECTURE NOTE
-      ========================== */}
+      {/* ARCHITECTURE NOTE */}
 
       <div
         className="
           mt-6
           rounded-xl
-          border border-[#252d38]
+          border
+          border-[#252d38]
           bg-[#151b24]
           p-4
           sm:mt-8
