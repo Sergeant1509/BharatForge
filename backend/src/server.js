@@ -5,6 +5,7 @@ import pool from "./config/db.js";
 import projectsRouter from "./routes/projects.js";
 import fieldReportsRouter from "./routes/fieldReports.js";
 import matchingRouter from "./routes/matching.js";
+import verificationRouter from "./routes/verification.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.get("/api", (req, res) => {
 app.use("/api/projects", projectsRouter);
 app.use("/api/field-reports", fieldReportsRouter);
 app.use("/api/matching", matchingRouter);
+app.use("/api/verification", verificationRouter);
 
 // Root
 app.get("/", (req, res) => {
