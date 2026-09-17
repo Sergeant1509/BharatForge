@@ -57,6 +57,8 @@ const Reports = () => {
   const [reports, setReports] = useState(initialReports)
   const [showForm, setShowForm] = useState(false)
 
+  const [selectedFile, setSelectedFile] = useState(null)
+
   const [form, setForm] = useState({
     reportId: "",
     date: "",
@@ -99,11 +101,16 @@ const Reports = () => {
       evidence: null,
     })
 
+    setSelectedFile(null)
     setShowForm(false)
   }
 
   const statusClass = (status) => {
-    if (status === "Complete" || status === "Processed" || status === "Matched") {
+    if (
+      status === "Complete" ||
+      status === "Processed" ||
+      status === "Matched"
+    ) {
       return "text-green-400"
     }
 
@@ -116,6 +123,19 @@ const Reports = () => {
     }
 
     return "text-red-400"
+  }
+
+  const selectFile = (file, sourceType) => {
+    if (!file) return
+
+    setSelectedFile(file)
+
+    setForm((prev) => ({
+      ...prev,
+      sourceType,
+    }))
+
+    setShowForm(true)
   }
 
   return (
@@ -134,7 +154,17 @@ const Reports = () => {
         </div>
 
         <button
-          onClick={() => setShowForm(!showForm)}
+          type="button"
+          onClick={() => {
+            setSelectedFile(null)
+
+            setForm((prev) => ({
+              ...prev,
+              sourceType: "Manual Field Update",
+            }))
+
+            setShowForm(!showForm)
+          }}
           className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
         >
           {showForm ? "Close" : "+ Add Field Update"}
@@ -150,65 +180,163 @@ const Reports = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {[
-            {
-              title: "Daily Report",
-              description: "Upload DPR / daily site execution report",
-              formats: "PDF / DOCX / XLSX",
-            },
-            {
-              title: "Spreadsheet",
-              description: "Import structured progress or field data",
-              formats: "XLSX / XLS / CSV",
-            },
-            {
-              title: "Manual Field Update",
-              description: "Enter an execution update directly",
-              formats: "Manual Entry",
-            },
-          ].map((source) => (
-            <button
-              key={source.title}
-              type="button"
-              onClick={() => {
-                setForm({
-                  ...form,
-                  sourceType: source.title,
-                })
-                setShowForm(true)
-              }}
-              className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
-            >
-              <div className="flex items-start justify-between">
+          {/* Daily Report */}
+          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
 
-                <div>
-                  <p className="text-white font-medium">
-                    {source.title}
-                  </p>
+            <div className="flex items-start justify-between">
 
-                  <p className="text-gray-400 text-sm mt-2">
-                    {source.description}
-                  </p>
-                </div>
+              <div>
+                <p className="text-white font-medium">
+                  Daily Report
+                </p>
 
-                <span className="text-gray-500 text-lg">
-                  +
-                </span>
-
+                <p className="text-gray-400 text-sm mt-2">
+                  Upload DPR / daily site execution report
+                </p>
               </div>
 
-              <p className="text-xs text-gray-500 mt-4">
-                {source.formats}
-              </p>
+              <span className="text-gray-500 text-lg">
+                ↑
+              </span>
 
-            </button>
-          ))}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4">
+              PDF / DOCX / XLSX
+            </p>
+
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                selectFile(
+                  e.target.files?.[0],
+                  "Daily Report"
+                )
+
+                e.target.value = ""
+              }}
+            />
+
+            {selectedFile &&
+              form.sourceType === "Daily Report" && (
+                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
+
+                  <p className="text-xs text-green-400">
+                    File selected
+                  </p>
+
+                  <p className="text-xs text-gray-400 mt-1 truncate">
+                    {selectedFile.name}
+                  </p>
+
+                </div>
+              )}
+
+          </label>
+
+          {/* Spreadsheet */}
+          <label className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition cursor-pointer">
+
+            <div className="flex items-start justify-between">
+
+              <div>
+                <p className="text-white font-medium">
+                  Spreadsheet
+                </p>
+
+                <p className="text-gray-400 text-sm mt-2">
+                  Import structured progress or field data
+                </p>
+              </div>
+
+              <span className="text-gray-500 text-lg">
+                ↑
+              </span>
+
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4">
+              XLSX / XLS / CSV
+            </p>
+
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => {
+                selectFile(
+                  e.target.files?.[0],
+                  "Spreadsheet"
+                )
+
+                e.target.value = ""
+              }}
+            />
+
+            {selectedFile &&
+              form.sourceType === "Spreadsheet" && (
+                <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
+
+                  <p className="text-xs text-green-400">
+                    File selected
+                  </p>
+
+                  <p className="text-xs text-gray-400 mt-1 truncate">
+                    {selectedFile.name}
+                  </p>
+
+                </div>
+              )}
+
+          </label>
+
+          {/* Manual Field Update */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFile(null)
+
+              setForm((prev) => ({
+                ...prev,
+                sourceType: "Manual Field Update",
+              }))
+
+              setShowForm(true)
+            }}
+            className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
+          >
+
+            <div className="flex items-start justify-between">
+
+              <div>
+                <p className="text-white font-medium">
+                  Manual Field Update
+                </p>
+
+                <p className="text-gray-400 text-sm mt-2">
+                  Enter an execution update directly
+                </p>
+              </div>
+
+              <span className="text-gray-500 text-lg">
+                +
+              </span>
+
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4">
+              Manual Entry
+            </p>
+
+          </button>
 
         </div>
 
       </div>
 
-      {/* Add Report Form */}
+      {/* Add Field Update Form */}
       {showForm && (
         <form
           onSubmit={submitReport}
@@ -224,6 +352,29 @@ const Reports = () => {
               Provide field execution information for BharatForge reconciliation.
             </p>
           </div>
+
+          {/* Selected File */}
+          {selectedFile && (
+            <div className="mt-5 bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                SELECTED FILE
+              </p>
+
+              <div className="flex items-center justify-between mt-2">
+
+                <p className="text-sm text-white truncate">
+                  {selectedFile.name}
+                </p>
+
+                <span className="text-xs text-green-400 ml-4">
+                  Ready
+                </span>
+
+              </div>
+
+            </div>
+          )}
 
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
@@ -362,7 +513,7 @@ const Reports = () => {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  evidence: e.target.files[0],
+                  evidence: e.target.files?.[0] || null,
                 })
               }
               className="w-full mt-2 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-sm text-gray-400"
@@ -543,11 +694,9 @@ const Reports = () => {
                   </td>
 
                   <td className="py-4 pr-5">
-                    <div>
-                      <p className="text-white">
-                        {report.activity}
-                      </p>
-                    </div>
+                    <p className="text-white">
+                      {report.activity}
+                    </p>
                   </td>
 
                   <td className="py-4 pr-5">
