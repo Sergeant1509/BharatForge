@@ -552,15 +552,15 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="pb-10">
+      <div className="w-full max-w-full min-w-0 overflow-x-hidden pb-10">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <p className="text-sm text-gray-500">
               Project
             </p>
 
-            <h2 className="text-2xl font-semibold text-white mt-1">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
               OIL — Gas Processing Plant
             </h2>
 
@@ -592,16 +592,16 @@ const Dashboard = () => {
 
   if (error) {
     return (
-      <div className="pb-10">
+      <div className="w-full max-w-full min-w-0 overflow-x-hidden pb-10">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
           <div>
             <p className="text-sm text-gray-500">
               Project
             </p>
 
-            <h2 className="text-2xl font-semibold text-white mt-1">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
               OIL — Gas Processing Plant
             </h2>
 
@@ -643,13 +643,13 @@ const Dashboard = () => {
   */
 
   return (
-    <div className="pb-10">
+    <div className="w-full max-w-full min-w-0 overflow-x-hidden pb-10">
 
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
         <div>
 
@@ -657,7 +657,7 @@ const Dashboard = () => {
             Project
           </p>
 
-          <h2 className="text-2xl font-semibold text-white mt-1">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
             OIL — Gas Processing Plant
           </h2>
 
@@ -1025,7 +1025,7 @@ const Dashboard = () => {
 
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
           <div>
 
@@ -1040,7 +1040,7 @@ const Dashboard = () => {
           </div>
 
 
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
 
             <div className="flex items-center gap-2">
 
@@ -1068,7 +1068,7 @@ const Dashboard = () => {
         </div>
 
 
-        <div className="mt-6 h-72 w-full">
+        <div className="mt-6 h-56 sm:h-72 w-full min-w-0 overflow-hidden">
 
           {progressActivities.length === 0 ? (
 
@@ -1337,7 +1337,7 @@ const Dashboard = () => {
 
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
           <div>
 
@@ -1383,7 +1383,7 @@ const Dashboard = () => {
 
               <div
                 key={report.id}
-                className="grid grid-cols-[110px_1fr_80px_120px_70px] gap-3 items-center p-4 bg-[#10151c] rounded-lg"
+                className="grid grid-cols-1 sm:grid-cols-[110px_minmax(0,1fr)_80px_120px_70px] gap-2 sm:gap-3 items-start sm:items-center p-4 bg-[#10151c] rounded-lg w-full min-w-0"
               >
 
                 <span className="text-sm text-gray-300">
@@ -1447,7 +1447,7 @@ const Dashboard = () => {
 
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
           <h3 className="text-lg font-semibold text-white">
             Critical Activities
@@ -1484,7 +1484,7 @@ const Dashboard = () => {
                     `/activity/${item.id}`
                   )
                 }
-                className="w-full text-left grid grid-cols-[1fr_120px_80px] items-center p-4 bg-[#10151c] rounded-lg hover:bg-[#1b2430] transition"
+                className="w-full min-w-0 text-left grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px_80px] gap-2 sm:gap-0 items-start sm:items-center p-4 bg-[#10151c] rounded-lg hover:bg-[#1b2430] transition"
               >
 
                 <div>
