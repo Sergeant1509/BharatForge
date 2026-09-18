@@ -2,7 +2,8 @@ import UploadModal from "../components/UploadModal"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-const API_BASE = "http://localhost:5000/api"
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
 
 const inputSources = [
   {

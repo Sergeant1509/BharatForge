@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
+
 const Signup = () => {
   const navigate = useNavigate()
 
@@ -20,68 +23,68 @@ const Signup = () => {
     })
   }
 
-      const handleSignup = async (e) => {
-      e.preventDefault()
-      setError("")
+  const handleSignup = async (e) => {
+    e.preventDefault()
+    setError("")
 
-      if (
-        !form.name ||
-        !form.identifier ||
-        !form.password ||
-        !form.confirmPassword
-      ) {
-        setError("Please fill all fields.")
-        return
-      }
-
-      if (form.password !== form.confirmPassword) {
-        setError("Passwords do not match.")
-        return
-      }
-
-      if (form.password.length < 6) {
-        setError("Password must be at least 6 characters.")
-        return
-      }
-
-      try {
-        const response = await fetch(
-          "http://localhost:5000/api/auth/signup",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              name: form.name,
-              identifier: form.identifier,
-              password: form.password,
-            }),
-          }
-        )
-
-        const data = await response.json()
-
-        if (!response.ok || !data.success) {
-          setError(data.message || "Signup failed.")
-          return
-        }
-
-        localStorage.setItem(
-          "bharatforge_user",
-          JSON.stringify(data.user)
-        )
-
-        navigate("/")
-      } catch (err) {
-        console.error("Signup error:", err)
-
-        setError(
-          "Unable to connect to the server. Please try again."
-        )
-      }
+    if (
+      !form.name ||
+      !form.identifier ||
+      !form.password ||
+      !form.confirmPassword
+    ) {
+      setError("Please fill all fields.")
+      return
     }
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.")
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/auth/signup`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            name: form.name,
+            identifier: form.identifier,
+            password: form.password,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        setError(data.message || "Signup failed.")
+        return
+      }
+
+      localStorage.setItem(
+        "bharatforge_user",
+        JSON.stringify(data.user)
+      )
+
+      navigate("/")
+    } catch (err) {
+      console.error("Signup error:", err)
+
+      setError(
+        "Unable to connect to the server. Please try again."
+      )
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center px-4 py-8">
@@ -90,7 +93,11 @@ const Signup = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl text-2xl font-black mb-4">
-           <img src="icon.jpeg" alt="BharatForge Logo" className="rounded-xl" />
+            <img
+              src="icon.jpeg"
+              alt="BharatForge Logo"
+              className="rounded-xl"
+            />
           </div>
 
           <h1 className="text-2xl font-bold">
@@ -195,6 +202,7 @@ const Signup = () => {
             </p>
 
             <button
+              type="button"
               onClick={() => navigate("/login")}
               className="text-[#60a5fa] hover:text-[#93c5fd] text-sm font-medium mt-2"
             >

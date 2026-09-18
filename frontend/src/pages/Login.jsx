@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
+
 const Login = () => {
   const navigate = useNavigate()
 
@@ -12,52 +15,52 @@ const Login = () => {
   const [error, setError] = useState("")
 
   const handleSubmit = async (e) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  setError("")
+    setError("")
 
-  if (!form.identifier || !form.password) {
-    setError("Please enter email/mobile number and password.")
-    return
-  }
-
-  try {
-    const response = await fetch(
-      "http://localhost:5000/api/auth/login",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          identifier: form.identifier,
-          password: form.password,
-        }),
-      }
-    )
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      setError(data.message || "Login failed.")
+    if (!form.identifier || !form.password) {
+      setError("Please enter email/mobile number and password.")
       return
     }
 
-    localStorage.setItem(
-      "bharatforge_user",
-      JSON.stringify(data.user)
-    )
+    try {
+      const response = await fetch(
+        `${API_BASE}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            identifier: form.identifier,
+            password: form.password,
+          }),
+        }
+      )
 
-    navigate("/")
-  } catch (err) {
-    console.error("Login error:", err)
+      const data = await response.json()
 
-    setError(
-      "Unable to connect to the server. Please try again."
-    )
+      if (!response.ok || !data.success) {
+        setError(data.message || "Login failed.")
+        return
+      }
+
+      localStorage.setItem(
+        "bharatforge_user",
+        JSON.stringify(data.user)
+      )
+
+      navigate("/")
+    } catch (err) {
+      console.error("Login error:", err)
+
+      setError(
+        "Unable to connect to the server. Please try again."
+      )
+    }
   }
-}
 
   return (
     <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center px-4">
@@ -72,7 +75,11 @@ const Login = () => {
 
             <div className="flex h-11 w-11 items-center justify-center">
               <span className="text-xl font-bold">
-                <img src="icon.jpeg" alt="BharatForge Logo" className='rounded-xl'/>
+                <img
+                  src="icon.jpeg"
+                  alt="BharatForge Logo"
+                  className="rounded-xl"
+                />
               </span>
             </div>
 

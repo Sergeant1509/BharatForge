@@ -6,6 +6,9 @@ import {
   getActivities,
 } from "../services/api"
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
+
 const sourceTypes = [
   "Daily Report",
   "Spreadsheet",
@@ -273,7 +276,7 @@ const Reports = () => {
 
       const response =
         await fetch(
-          "http://localhost:5000/api/ingestion/image",
+          `${API_BASE}/ingestion/image`,
           {
             method: "POST",
             credentials: "include",

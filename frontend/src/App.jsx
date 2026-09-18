@@ -20,6 +20,10 @@ import ActivityDetails from "./pages/ActivityDetails"
 import AuditTrail from "./pages/AuditTrail"
 
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
+
+
 const ProtectedLayout = ({ children }) => {
 
   const [loading, setLoading] = useState(true)
@@ -33,7 +37,7 @@ const ProtectedLayout = ({ children }) => {
       try {
 
         const response = await fetch(
-          "http://localhost:5000/api/auth/me",
+          `${API_BASE}/auth/me`,
           {
             credentials: "include",
           }

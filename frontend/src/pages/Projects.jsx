@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react"
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
+
 const initialProjects = [
   {
     id: "OIL-001",
@@ -160,7 +163,7 @@ const Projects = () => {
       setLoadingProjects(true)
 
       const response = await fetch(
-        "http://localhost:5000/api/projects"
+        `${API_BASE}/projects`
       )
 
       const result = await response.json()
@@ -239,7 +242,7 @@ const Projects = () => {
       setCreatingProject(true)
 
       const response = await fetch(
-        "http://localhost:5000/api/projects",
+        `${API_BASE}/projects`,
         {
           method: "POST",
 
