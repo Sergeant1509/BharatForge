@@ -391,6 +391,24 @@ const Projects = () => {
       )
   }
 
+  /*
+    Project search
+  */
+  const filteredProjects = projects.filter((project) => {
+    const query = search.toLowerCase().trim()
+
+    if (!query) {
+      return true
+    }
+
+    return (
+      project.id.toLowerCase().includes(query) ||
+      project.name.toLowerCase().includes(query) ||
+      project.location.toLowerCase().includes(query) ||
+      getFilteredHierarchy(project).length > 0
+    )
+  })
+
   return (
     <div className="w-full pb-10">
 
@@ -756,7 +774,7 @@ const Projects = () => {
               Loading projects...
             </p>
           </div>
-        ) : projects.length === 0 ? (
+        ) : filteredProjects.length === 0 ? (
           <div
             className="
               rounded-xl
@@ -771,7 +789,7 @@ const Projects = () => {
             </p>
           </div>
         ) : (
-          projects.map((project) => (
+          filteredProjects.map((project) => (
             <div
               key={project.id}
               className="
