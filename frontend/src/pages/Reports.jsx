@@ -41,7 +41,11 @@ function formatDate(date) {
 }
 
 function formatProgress(value) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return "—"
   }
 
@@ -82,7 +86,7 @@ function formatExtractionStatus(report) {
     return "Complete"
   }
 
-  return "Pending"
+  return "Complete"
 }
 
 function statusClass(status) {
@@ -103,7 +107,10 @@ function statusClass(status) {
     return "text-gray-400"
   }
 
-  if (status === "Unmatched" || status === "Rejected") {
+  if (
+    status === "Unmatched" ||
+    status === "Rejected"
+  ) {
     return "text-red-400"
   }
 
@@ -121,7 +128,10 @@ const Reports = () => {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [aiUploading, setAiUploading] = useState(false)
+
   const [error, setError] = useState("")
+  const [aiResult, setAiResult] = useState(null)
 
   const [form, setForm] = useState({
     reportId: "",
@@ -136,10 +146,9 @@ const Reports = () => {
     evidence: null,
   })
 
-
-  // ========================================
-  // LOAD BACKEND DATA
-  // ========================================
+  // =========================================================
+  // LOAD DATA
+  // =========================================================
 
   useEffect(() => {
     loadData()
@@ -150,60 +159,357 @@ const Reports = () => {
       setLoading(true)
       setError("")
 
-      const [reportsResponse, projectsResponse, activitiesResponse] =
-        await Promise.all([
-          getFieldReports(),
-          getProjects(),
-          getActivities(),
-        ])
+      const [
+        reportsResponse,
+        projectsResponse,
+        activitiesResponse,
+      ] = await Promise.all([
+        getFieldReports(),
+        getProjects(),
+        getActivities(),
+      ])
 
-      setReports(reportsResponse.data || [])
-      setProjects(projectsResponse.data || [])
-      setActivities(activitiesResponse.data || [])
+      setReports(
+        reportsResponse.data || []
+      )
 
-      // Automatically select the first project
+      setProjects(
+        projectsResponse.data || []
+      )
+
+      setActivities(
+        activitiesResponse.data || []
+      )
+
       if (
         projectsResponse.data &&
         projectsResponse.data.length > 0
       ) {
         setForm((prev) => ({
           ...prev,
-          projectId: prev.projectId || String(projectsResponse.data[0].id),
+          projectId:
+            prev.projectId ||
+            String(
+              projectsResponse.data[0].id
+            ),
         }))
       }
-
     } catch (err) {
-      console.error("Failed to load field report data:", err)
-      setError(err.message || "Failed to load field reports")
+      console.error(
+        "Failed to load field report data:",
+        err
+      )
+
+      setError(
+        err.message ||
+          "Failed to load field reports"
+      )
     } finally {
       setLoading(false)
     }
   }
 
+  // =========================================================
+  // AI DPR IMAGE PROCESSING
+  // =========================================================
 
-  // ========================================
-  // SUBMIT FIELD REPORT
-  // ========================================
+  async function uploadDPRImage(file) {
+    if (!file) return
+
+    // Make sure this is actually an image
+    if (!file.type.startsWith("image/")) {
+      selectFile(
+        file,
+        "Daily Report"
+      )
+      return
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      alert(
+        "Only JPG, PNG and WEBP images are supported."
+      )
+      return
+    }
+
+    if (
+      file.size >
+      10 * 1024 * 1024
+    ) {
+      alert(
+        "Image size must be less than 10 MB."
+      )
+      return
+    }
+
+    try {
+      setAiUploading(true)
+      setError("")
+      setAiResult(null)
+
+      const formData =
+        new FormData()
+
+      formData.append(
+        "file",
+        file
+      )
+
+      console.log(
+        "Uploading DPR image:",
+        file.name
+      )
+
+      // =====================================================
+      // SEND IMAGE TO GEMINI BACKEND
+      // =====================================================
+
+      const response =
+        await fetch(
+          "http://localhost:5000/api/ingestion/image",
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          }
+        )
+
+      const data =
+        await response.json()
+
+      console.log(
+        "FULL AI RESPONSE:",
+        data
+      )
+
+      // =====================================================
+      // HANDLE BACKEND ERROR
+      // =====================================================
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "Failed to process DPR image"
+        )
+      }
+
+      // =====================================================
+      // GET AI DATA
+      // =====================================================
+
+      const extracted =
+        data.extracted || {}
+
+      const matching =
+        data.matching || {}
+
+      const project =
+        data.project || {}
+
+      const report =
+        data.report || {}
+
+      console.log(
+        "Extracted Project:",
+        extracted.projectCode
+      )
+
+      console.log(
+        "Extracted Date:",
+        extracted.reportDate
+      )
+
+      console.log(
+        "Extracted Discipline:",
+        extracted.discipline
+      )
+
+      console.log(
+        "Extracted Activity:",
+        extracted.activityDescription
+      )
+
+      console.log(
+        "Extracted Progress:",
+        extracted.reportedProgress
+      )
+
+      console.log(
+        "Extracted Status:",
+        extracted.status
+      )
+
+      // =====================================================
+      // STORE AI RESULT
+      // =====================================================
+
+      setAiResult({
+        extracted,
+        matching,
+        project,
+        report,
+      })
+
+      // =====================================================
+      // SAVE FILE STATE ONLY
+      // =====================================================
+
+      setSelectedFile(file)
+
+      // IMPORTANT:
+      // Do NOT call createFieldReport() here.
+      //
+      // The backend /api/ingestion/image has already
+      // created the PostgreSQL field_reports record.
+      //
+      // Calling createFieldReport() again would attempt
+      // to create the same AI report a second time.
+      // =====================================================
+
+      // Close manual form if it happened to be open.
+      setShowForm(false)
+
+      // =====================================================
+      // REFRESH REPORT TABLE
+      // =====================================================
+
+      const reportsResponse =
+        await getFieldReports()
+
+      setReports(
+        reportsResponse.data || []
+      )
+
+      // =====================================================
+      // EXTRACTION CONFIDENCE
+      // =====================================================
+
+      const extractionConfidence =
+        Number(
+          extracted.extractionConfidence ||
+            0
+        )
+
+      const extractionPercent =
+        extractionConfidence <= 1
+          ? Math.round(
+              extractionConfidence * 100
+            )
+          : Math.round(
+              extractionConfidence
+            )
+
+      // =====================================================
+      // SUCCESS MESSAGE
+      // =====================================================
+
+      alert(
+        `AI DPR PROCESSING COMPLETE\n\n` +
+        `Report ID: ${
+          report.reportCode ||
+          "—"
+        }\n\n` +
+        `Project: ${
+          extracted.projectCode ||
+          "Not found"
+        }\n` +
+        `Date: ${
+          extracted.reportDate ||
+          "Not found"
+        }\n` +
+        `Discipline: ${
+          extracted.discipline ||
+          "Not found"
+        }\n` +
+        `Progress: ${
+          extracted.reportedProgress ??
+          "Not found"
+        }%\n` +
+        `Status: ${
+          extracted.status ||
+          "Not found"
+        }\n\n` +
+        `Activity Code: ${
+          matching.activity
+            ?.activity_code ||
+          "Pending"
+        }\n` +
+        `Activity Name: ${
+          matching.activity
+            ?.name ||
+          "Pending"
+        }\n` +
+        `Match Confidence: ${
+          matching.confidence ??
+          0
+        }%\n` +
+        `Extraction Confidence: ${
+          extractionPercent
+        }%\n\n` +
+        `The report has already been saved to PostgreSQL.`
+      )
+    } catch (err) {
+      console.error(
+        "AI DPR upload error:",
+        err
+      )
+
+      setError(
+        err.message ||
+          "Failed to process DPR image"
+      )
+
+      alert(
+        err.message ||
+          "Failed to process DPR image"
+      )
+    } finally {
+      setAiUploading(false)
+    }
+  }
+
+  // =========================================================
+  // MANUAL FIELD REPORT SUBMISSION
+  // =========================================================
 
   async function submitReport(e) {
     e.preventDefault()
 
     if (!form.projectId) {
-      alert("Please select a project.")
+      alert(
+        "Please select a project."
+      )
       return
     }
 
     if (!form.reportId.trim()) {
-      alert("Please enter a Report ID.")
+      alert(
+        "Please enter a Report ID."
+      )
       return
     }
 
     if (!form.date) {
-      alert("Please select a report date.")
+      alert(
+        "Please select a report date."
+      )
       return
     }
 
-    if (!form.executionUpdate.trim() && !form.activityId.trim()) {
+    if (
+      !form.executionUpdate.trim() &&
+      !form.activityId.trim()
+    ) {
       alert(
         "Please enter an activity ID or provide an execution update."
       )
@@ -214,91 +520,173 @@ const Reports = () => {
       setSubmitting(true)
       setError("")
 
-      // Resolve activity code to database ID.
+      // =====================================================
+      // FIND ACTIVITY
+      // =====================================================
+
       let selectedActivity = null
 
-      if (form.activityId.trim()) {
-        selectedActivity = activities.find(
-          (activity) =>
-            String(activity.activity_code).toLowerCase() ===
-            form.activityId.trim().toLowerCase()
-        )
+      if (
+        form.activityId.trim()
+      ) {
+        selectedActivity =
+          activities.find(
+            (activity) =>
+              String(
+                activity.activity_code
+              ).toLowerCase() ===
+              form.activityId
+                .trim()
+                .toLowerCase()
+          )
 
         if (!selectedActivity) {
           alert(
             `Activity "${form.activityId}" was not found in the selected project.`
           )
+
           setSubmitting(false)
           return
         }
 
         if (
-          String(selectedActivity.project_id) !==
+          String(
+            selectedActivity.project_id
+          ) !==
           String(form.projectId)
         ) {
           alert(
             "The selected activity does not belong to the selected project."
           )
+
           setSubmitting(false)
           return
         }
       }
 
-      const descriptionParts = []
+      // =====================================================
+      // BUILD DESCRIPTION
+      // =====================================================
 
-      if (form.executionUpdate.trim()) {
-        descriptionParts.push(form.executionUpdate.trim())
+      const descriptionParts =
+        []
+
+      if (
+        form.executionUpdate.trim()
+      ) {
+        descriptionParts.push(
+          form.executionUpdate.trim()
+        )
       }
 
-      if (form.constraint.trim()) {
+      if (
+        form.constraint.trim()
+      ) {
         descriptionParts.push(
           `Constraint/Observation: ${form.constraint.trim()}`
         )
       }
 
       const description =
-        descriptionParts.join("\n") ||
+        descriptionParts.join(
+          "\n"
+        ) ||
         selectedActivity?.description ||
         "Field execution update"
 
+      // =====================================================
+      // PAYLOAD
+      // =====================================================
+
       const payload = {
-        report_code: form.reportId.trim(),
-        project_id: Number(form.projectId),
-        activity_id: selectedActivity
-          ? Number(selectedActivity.id)
-          : null,
-        report_date: form.date,
-        location: "Project Site",
+        report_code:
+          form.reportId.trim(),
+
+        project_id:
+          Number(
+            form.projectId
+          ),
+
+        activity_id:
+          selectedActivity
+            ? Number(
+                selectedActivity.id
+              )
+            : null,
+
+        report_date:
+          form.date,
+
+        location:
+          "Project Site",
+
         description,
+
         reported_progress:
           form.progress === ""
             ? null
-            : Number(form.progress),
-        discipline: form.discipline,
-        source_type: form.sourceType,
+            : Number(
+                form.progress
+              ),
+
+        discipline:
+          form.discipline,
+
+        source_type:
+          form.sourceType,
       }
 
-      const response = await createFieldReport(payload)
+      console.log(
+        "Manual report payload:",
+        payload
+      )
 
-      if (!response.success) {
+      // =====================================================
+      // CREATE MANUAL REPORT
+      // =====================================================
+
+      const response =
+        await createFieldReport(
+          payload
+        )
+
+      if (
+        !response.success
+      ) {
         throw new Error(
-          response.message || "Failed to create field report"
+          response.message ||
+            "Failed to create field report"
         )
       }
 
-      alert("Field report submitted successfully.")
+      alert(
+        "Field report submitted successfully."
+      )
 
-      // Reload reports from PostgreSQL.
-      const reportsResponse = await getFieldReports()
-      setReports(reportsResponse.data || [])
+      // =====================================================
+      // REFRESH
+      // =====================================================
 
-      // Reset form.
+      const reportsResponse =
+        await getFieldReports()
+
+      setReports(
+        reportsResponse.data || []
+      )
+
+      // =====================================================
+      // RESET FORM
+      // =====================================================
+
       setForm({
         reportId: "",
-        projectId: form.projectId,
+        projectId:
+          form.projectId,
         date: "",
-        sourceType: "Daily Report",
-        discipline: "Civil",
+        sourceType:
+          "Daily Report",
+        discipline:
+          "Civil",
         activityId: "",
         progress: "",
         constraint: "",
@@ -308,58 +696,104 @@ const Reports = () => {
 
       setSelectedFile(null)
       setShowForm(false)
-
     } catch (err) {
-      console.error("Failed to submit field report:", err)
+      console.error(
+        "Failed to submit field report:",
+        err
+      )
 
       setError(
-        err.message || "Failed to submit field report"
+        err.message ||
+          "Failed to submit field report"
       )
 
       alert(
-        err.message || "Failed to submit field report"
+        err.message ||
+          "Failed to submit field report"
       )
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleDragOver = (e, sourceType) => {
-  e.preventDefault()
-  e.stopPropagation()
-  setDraggingType(sourceType)
-}
+  // =========================================================
+  // DRAG OVER
+  // =========================================================
 
-const handleDragLeave = (e) => {
-  e.preventDefault()
-  e.stopPropagation()
-  setDraggingType(null)
-}
+  const handleDragOver = (
+    e,
+    sourceType
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
 
-const handleDrop = (e, sourceType) => {
-  e.preventDefault()
-  e.stopPropagation()
+    setDraggingType(
+      sourceType
+    )
+  }
 
-  setDraggingType(null)
+  // =========================================================
+  // DRAG LEAVE
+  // =========================================================
 
-  const file = e.dataTransfer.files?.[0]
+  const handleDragLeave = (
+    e
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
 
-  if (!file) return
+    setDraggingType(null)
+  }
 
-  setSelectedFile(file)
+  // =========================================================
+  // DROP
+  // =========================================================
 
-  setForm((prev) => ({
-    ...prev,
-    sourceType,
-  }))
-}
+  const handleDrop = (
+    e,
+    sourceType
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
 
+    setDraggingType(null)
 
-  // ========================================
-  // FILE SELECTION
-  // ========================================
+    const file =
+      e.dataTransfer.files?.[0]
 
-  const selectFile = (file, sourceType) => {
+    if (!file) return
+
+    // Image DPR → Gemini AI
+    if (
+      sourceType ===
+        "Daily Report" &&
+      file.type.startsWith(
+        "image/"
+      )
+    ) {
+      uploadDPRImage(file)
+      return
+    }
+
+    // Other file types → normal form
+    setSelectedFile(file)
+
+    setForm((prev) => ({
+      ...prev,
+      sourceType,
+    }))
+
+    setShowForm(true)
+  }
+
+  // =========================================================
+  // FILE SELECT
+  // =========================================================
+
+  const selectFile = (
+    file,
+    sourceType
+  ) => {
     if (!file) return
 
     setSelectedFile(file)
@@ -372,27 +806,34 @@ const handleDrop = (e, sourceType) => {
     setShowForm(true)
   }
 
-
-  // ========================================
-  // RESET FORM
-  // ========================================
+  // =========================================================
+  // MANUAL FORM
+  // =========================================================
 
   function openManualForm() {
     setSelectedFile(null)
+    setAiResult(null)
 
     setForm((prev) => ({
       ...prev,
-      sourceType: "Manual Field Update",
+      sourceType:
+        "Manual Field Update",
     }))
 
     setShowForm(true)
   }
 
+  // =========================================================
+  // RENDER
+  // =========================================================
 
   return (
     <div className="pb-10">
 
-      {/* Header */}
+      {/* ===================================================
+          HEADER
+      =================================================== */}
+
       <div className="flex items-center justify-between">
 
         <div>
@@ -416,23 +857,314 @@ const handleDrop = (e, sourceType) => {
           }}
           className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
         >
-          {showForm ? "Close" : "+ Add Field Update"}
+          {showForm
+            ? "Close"
+            : "+ Add Field Update"}
         </button>
 
       </div>
 
+      {/* ===================================================
+          ERROR
+      =================================================== */}
 
-      {/* Error */}
       {error && (
         <div className="mt-6 bg-[#151b24] border border-red-500/30 rounded-xl p-4">
+
           <p className="text-red-400 text-sm">
             {error}
           </p>
+
         </div>
       )}
 
+      {/* ===================================================
+          AI EXTRACTION RESULT
+      =================================================== */}
 
-      {/* Input Sources */}
+      {aiResult && (
+        <div className="mt-6 bg-[#151b24] border border-blue-500/30 rounded-xl p-6">
+
+          {/* Header */}
+
+          <div className="flex items-start justify-between">
+
+            <div>
+
+              <p className="text-xs text-blue-400 font-medium">
+                AI DPR EXTRACTION
+              </p>
+
+              <h3 className="text-lg font-semibold text-white mt-1">
+                Extraction completed successfully
+              </h3>
+
+              <p className="text-gray-500 text-sm mt-1">
+                Gemini extracted the field information and BharatForge matched it against the L5/L6 schedule.
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setAiResult(null)
+              }
+              className="text-gray-500 hover:text-white text-xl"
+            >
+              ×
+            </button>
+
+          </div>
+
+          {/* =================================================
+              BASIC EXTRACTED DATA
+          ================================================= */}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+
+            {/* Project */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                PROJECT CODE
+              </p>
+
+              <p className="text-white font-medium mt-2">
+                {aiResult.extracted?.projectCode ||
+                  "Not found"}
+              </p>
+
+              {aiResult.project?.name && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {aiResult.project.name}
+                </p>
+              )}
+
+            </div>
+
+            {/* Date */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                REPORT DATE
+              </p>
+
+              <p className="text-white font-medium mt-2">
+                {aiResult.extracted?.reportDate ||
+                  "Not found"}
+              </p>
+
+            </div>
+
+            {/* Discipline */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                DISCIPLINE
+              </p>
+
+              <p className="text-white font-medium mt-2">
+                {aiResult.extracted?.discipline ||
+                  "Not found"}
+              </p>
+
+            </div>
+
+            {/* Progress */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                REPORTED PROGRESS
+              </p>
+
+              <p className="text-white font-medium mt-2">
+
+                {aiResult.extracted?.reportedProgress ??
+                  "Not found"}
+
+                {aiResult.extracted?.reportedProgress !==
+                  null &&
+                aiResult.extracted?.reportedProgress !==
+                  undefined
+                  ? "%"
+                  : ""}
+
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              ACTIVITY DESCRIPTION
+          ================================================= */}
+
+          <div className="mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+            <p className="text-xs text-gray-500">
+              EXTRACTED ACTIVITY DESCRIPTION
+            </p>
+
+            <p className="text-gray-200 mt-2 leading-relaxed">
+              {aiResult.extracted?.activityDescription ||
+                "No activity description extracted"}
+            </p>
+
+          </div>
+
+          {/* =================================================
+              ACTIVITY MATCH
+          ================================================= */}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+
+            {/* Activity Code */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                MATCHED ACTIVITY
+              </p>
+
+              <p className="text-white font-medium mt-2">
+
+                {aiResult.matching?.activity
+                  ?.activity_code ||
+                  "Pending"}
+
+              </p>
+
+            </div>
+
+            {/* Activity Name */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                ACTIVITY NAME
+              </p>
+
+              <p className="text-white font-medium mt-2">
+
+                {aiResult.matching?.activity
+                  ?.name ||
+                  "Pending"}
+
+              </p>
+
+            </div>
+
+            {/* Match Confidence */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                MATCH CONFIDENCE
+              </p>
+
+              <p className="text-yellow-400 font-medium mt-2">
+
+                {aiResult.matching?.confidence ??
+                  0}
+                %
+
+              </p>
+
+            </div>
+
+            {/* Extraction Confidence */}
+
+            <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
+              <p className="text-xs text-gray-500">
+                EXTRACTION CONFIDENCE
+              </p>
+
+              <p className="text-green-400 font-medium mt-2">
+
+                {(() => {
+                  const value =
+                    Number(
+                      aiResult.extracted
+                        ?.extractionConfidence ||
+                        0
+                    )
+
+                  return value <= 1
+                    ? `${Math.round(
+                        value * 100
+                      )}%`
+                    : `${Math.round(
+                        value
+                      )}%`
+                })()}
+
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              STATUS
+          ================================================= */}
+
+          <div className="mt-5 flex flex-wrap gap-3">
+
+            <span
+              className={`px-3 py-1.5 rounded-full text-xs ${
+                aiResult.matching?.status ===
+                "AUTO_LINKED"
+                  ? "bg-green-500/10 text-green-400"
+                  : aiResult.matching?.status ===
+                    "REQUIRES_REVIEW"
+                  ? "bg-yellow-500/10 text-yellow-400"
+                  : "bg-red-500/10 text-red-400"
+              }`}
+            >
+              Matching:{" "}
+              {formatMatchingStatus(
+                aiResult.matching?.status
+              )}
+            </span>
+
+            <span className="px-3 py-1.5 rounded-full text-xs bg-blue-500/10 text-blue-400">
+              AI Processed
+            </span>
+
+            <span className="px-3 py-1.5 rounded-full text-xs bg-green-500/10 text-green-400">
+              Saved to PostgreSQL
+            </span>
+
+          </div>
+
+          {/* =================================================
+              REPORT ID
+          ================================================= */}
+
+          <div className="mt-4 text-xs text-gray-500">
+
+            AI Report ID:{" "}
+
+            <span className="text-gray-300">
+              {aiResult.report?.reportCode ||
+                "—"}
+            </span>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ===================================================
+          INPUT SOURCES
+      =================================================== */}
+
       <div className="mt-8">
 
         <p className="text-xs text-gray-500 mb-3">
@@ -441,17 +1173,29 @@ const handleDrop = (e, sourceType) => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Daily Report */}
+          {/* =================================================
+              DAILY REPORT
+          ================================================= */}
+
           <label
             onDragOver={(e) =>
-              handleDragOver(e, "Daily Report")
+              handleDragOver(
+                e,
+                "Daily Report"
+              )
             }
-            onDragLeave={handleDragLeave}
+            onDragLeave={
+              handleDragLeave
+            }
             onDrop={(e) =>
-              handleDrop(e, "Daily Report")
+              handleDrop(
+                e,
+                "Daily Report"
+              )
             }
             className={`text-left bg-[#151b24] border rounded-xl p-5 transition cursor-pointer ${
-              draggingType === "Daily Report"
+              draggingType ===
+              "Daily Report"
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[#252d38] hover:bg-[#1b2430] hover:border-[#3a4655]"
             }`}
@@ -460,6 +1204,7 @@ const handleDrop = (e, sourceType) => {
             <div className="flex items-start justify-between">
 
               <div>
+
                 <p className="text-white font-medium">
                   Daily Report
                 </p>
@@ -467,6 +1212,7 @@ const handleDrop = (e, sourceType) => {
                 <p className="text-gray-400 text-sm mt-2">
                   Upload DPR / daily site execution report
                 </p>
+
               </div>
 
               <span className="text-gray-500 text-lg">
@@ -476,25 +1222,56 @@ const handleDrop = (e, sourceType) => {
             </div>
 
             <p className="text-xs text-gray-500 mt-4">
-              PDF / DOCX / XLSX
+              PDF / DOCX / XLSX / JPG / PNG / WEBP
             </p>
+
+            {aiUploading && (
+              <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+
+                <p className="text-xs text-blue-400">
+                  AI is extracting and matching the DPR...
+                </p>
+
+                <p className="text-xs text-gray-500 mt-1">
+                  Please wait while Gemini analyzes the document.
+                </p>
+
+              </div>
+            )}
 
             <input
               type="file"
-              accept=".pdf,.doc,.docx,.xlsx,.xls"
+              accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.webp"
               className="hidden"
+              disabled={aiUploading}
               onChange={(e) => {
-                selectFile(
-                  e.target.files?.[0],
-                  "Daily Report"
-                )
+
+                const file =
+                  e.target.files?.[0]
+
+                if (!file) return
+
+                if (
+                  file.type.startsWith(
+                    "image/"
+                  )
+                ) {
+                  uploadDPRImage(file)
+                } else {
+                  selectFile(
+                    file,
+                    "Daily Report"
+                  )
+                }
 
                 e.target.value = ""
+
               }}
             />
 
             {selectedFile &&
-              form.sourceType === "Daily Report" && (
+              form.sourceType ===
+                "Daily Report" && (
                 <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
 
                   <p className="text-xs text-green-400">
@@ -510,18 +1287,29 @@ const handleDrop = (e, sourceType) => {
 
           </label>
 
+          {/* =================================================
+              SPREADSHEET
+          ================================================= */}
 
-          {/* Spreadsheet */}
           <label
             onDragOver={(e) =>
-              handleDragOver(e, "Spreadsheet")
+              handleDragOver(
+                e,
+                "Spreadsheet"
+              )
             }
-            onDragLeave={handleDragLeave}
+            onDragLeave={
+              handleDragLeave
+            }
             onDrop={(e) =>
-              handleDrop(e, "Spreadsheet")
+              handleDrop(
+                e,
+                "Spreadsheet"
+              )
             }
             className={`text-left bg-[#151b24] border rounded-xl p-5 transition cursor-pointer ${
-              draggingType === "Spreadsheet"
+              draggingType ===
+              "Spreadsheet"
                 ? "border-blue-500 bg-blue-500/10"
                 : "border-[#252d38] hover:bg-[#1b2430] hover:border-[#3a4655]"
             }`}
@@ -530,6 +1318,7 @@ const handleDrop = (e, sourceType) => {
             <div className="flex items-start justify-between">
 
               <div>
+
                 <p className="text-white font-medium">
                   Spreadsheet
                 </p>
@@ -537,6 +1326,7 @@ const handleDrop = (e, sourceType) => {
                 <p className="text-gray-400 text-sm mt-2">
                   Import structured progress or field data
                 </p>
+
               </div>
 
               <span className="text-gray-500 text-lg">
@@ -554,17 +1344,20 @@ const handleDrop = (e, sourceType) => {
               accept=".xlsx,.xls,.csv"
               className="hidden"
               onChange={(e) => {
+
                 selectFile(
                   e.target.files?.[0],
                   "Spreadsheet"
                 )
 
                 e.target.value = ""
+
               }}
             />
 
             {selectedFile &&
-              form.sourceType === "Spreadsheet" && (
+              form.sourceType ===
+                "Spreadsheet" && (
                 <div className="mt-4 p-3 bg-[#10151c] border border-[#252d38] rounded-lg">
 
                   <p className="text-xs text-green-400">
@@ -580,17 +1373,22 @@ const handleDrop = (e, sourceType) => {
 
           </label>
 
+          {/* =================================================
+              MANUAL FIELD UPDATE
+          ================================================= */}
 
-          {/* Manual Field Update */}
           <button
             type="button"
-            onClick={openManualForm}
+            onClick={
+              openManualForm
+            }
             className="text-left bg-[#151b24] border border-[#252d38] rounded-xl p-5 hover:bg-[#1b2430] hover:border-[#3a4655] transition"
           >
 
             <div className="flex items-start justify-between">
 
               <div>
+
                 <p className="text-white font-medium">
                   Manual Field Update
                 </p>
@@ -598,6 +1396,7 @@ const handleDrop = (e, sourceType) => {
                 <p className="text-gray-400 text-sm mt-2">
                   Enter an execution update directly
                 </p>
+
               </div>
 
               <span className="text-gray-500 text-lg">
@@ -616,8 +1415,10 @@ const handleDrop = (e, sourceType) => {
 
       </div>
 
+      {/* ===================================================
+          MANUAL FIELD UPDATE FORM
+      =================================================== */}
 
-      {/* Add Field Update Form */}
       {showForm && (
         <form
           onSubmit={submitReport}
@@ -625,6 +1426,7 @@ const handleDrop = (e, sourceType) => {
         >
 
           <div>
+
             <h3 className="text-lg font-semibold text-white">
               Add Field Update
             </h3>
@@ -632,10 +1434,11 @@ const handleDrop = (e, sourceType) => {
             <p className="text-gray-400 text-sm mt-1">
               Provide field execution information for BharatForge reconciliation.
             </p>
+
           </div>
 
-
           {/* Selected File */}
+
           {selectedFile && (
             <div className="mt-5 bg-[#10151c] border border-[#252d38] rounded-lg p-4">
 
@@ -658,124 +1461,160 @@ const handleDrop = (e, sourceType) => {
             </div>
           )}
 
+          {/* =================================================
+              BASIC INFORMATION
+          ================================================= */}
 
-          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
 
             {/* Report ID */}
+
             <input
               required
               placeholder="Report ID"
-              value={form.reportId}
+              value={
+                form.reportId
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  reportId: e.target.value,
+                  reportId:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
 
-
             {/* Project */}
+
             <select
               required
-              value={form.projectId}
+              value={
+                form.projectId
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  projectId: e.target.value,
+                  projectId:
+                    e.target.value,
                   activityId: "",
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
             >
+
               <option value="">
                 Select Project
               </option>
 
-              {projects.map((project) => (
-                <option
-                  key={project.id}
-                  value={project.id}
-                >
-                  {project.project_code} — {project.name}
-                </option>
-              ))}
+              {projects.map(
+                (project) => (
+                  <option
+                    key={project.id}
+                    value={project.id}
+                  >
+                    {project.project_code} —{" "}
+                    {project.name}
+                  </option>
+                )
+              )}
+
             </select>
 
-
             {/* Date */}
+
             <input
               required
               type="date"
-              value={form.date}
+              value={
+                form.date
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  date: e.target.value,
+                  date:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
             />
 
+            {/* Source */}
 
-            {/* Source Type */}
             <select
-              value={form.sourceType}
+              value={
+                form.sourceType
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  sourceType: e.target.value,
+                  sourceType:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
             >
-              {sourceTypes.map((type) => (
-                <option
-                  key={type}
-                  value={type}
-                >
-                  {type}
-                </option>
-              ))}
+
+              {sourceTypes.map(
+                (type) => (
+                  <option
+                    key={type}
+                    value={type}
+                  >
+                    {type}
+                  </option>
+                )
+              )}
+
             </select>
 
-
             {/* Discipline */}
+
             <select
-              value={form.discipline}
+              value={
+                form.discipline
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  discipline: e.target.value,
+                  discipline:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-gray-300 outline-none"
             >
-              {disciplines.map((item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-              ))}
+
+              {disciplines.map(
+                (item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+                )
+              )}
+
             </select>
 
           </div>
 
+          {/* =================================================
+              ACTIVITY + PROGRESS
+          ================================================= */}
 
-          {/* Activity + Progress */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 
             <input
               placeholder="Activity ID (e.g. L6-ELEC-001) — optional"
-              value={form.activityId}
+              value={
+                form.activityId
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  activityId: e.target.value,
+                  activityId:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
@@ -786,11 +1625,14 @@ const handleDrop = (e, sourceType) => {
               min="0"
               max="100"
               placeholder="Progress %"
-              value={form.progress}
+              value={
+                form.progress
+              }
               onChange={(e) =>
                 setForm({
                   ...form,
-                  progress: e.target.value,
+                  progress:
+                    e.target.value,
                 })
               }
               className="bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
@@ -798,37 +1640,49 @@ const handleDrop = (e, sourceType) => {
 
           </div>
 
+          {/* =================================================
+              EXECUTION UPDATE
+          ================================================= */}
 
-          {/* Execution Update */}
           <textarea
             placeholder="Execution update / work description"
-            value={form.executionUpdate}
+            value={
+              form.executionUpdate
+            }
             onChange={(e) =>
               setForm({
                 ...form,
-                executionUpdate: e.target.value,
+                executionUpdate:
+                  e.target.value,
               })
             }
             rows="4"
             className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none resize-none"
           />
 
+          {/* =================================================
+              CONSTRAINT
+          ================================================= */}
 
-          {/* Constraint */}
           <input
             placeholder="Material / constraint / observation (optional)"
-            value={form.constraint}
+            value={
+              form.constraint
+            }
             onChange={(e) =>
               setForm({
                 ...form,
-                constraint: e.target.value,
+                constraint:
+                  e.target.value,
               })
             }
             className="w-full mt-4 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-white outline-none"
           />
 
+          {/* =================================================
+              EVIDENCE
+          ================================================= */}
 
-          {/* Evidence */}
           <div className="mt-4">
 
             <label className="text-sm text-gray-300">
@@ -841,7 +1695,9 @@ const handleDrop = (e, sourceType) => {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  evidence: e.target.files?.[0] || null,
+                  evidence:
+                    e.target.files?.[0] ||
+                    null,
                 })
               }
               className="w-full mt-2 bg-[#10151c] border border-[#252d38] rounded-lg p-3 text-sm text-gray-400"
@@ -849,10 +1705,13 @@ const handleDrop = (e, sourceType) => {
 
           </div>
 
+          {/* Submit */}
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={
+              submitting
+            }
             className="mt-6 px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition"
           >
             {submitting
@@ -863,8 +1722,10 @@ const handleDrop = (e, sourceType) => {
         </form>
       )}
 
+      {/* ===================================================
+          PROCESSING PIPELINE
+      =================================================== */}
 
-      {/* Processing Pipeline */}
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
         <h3 className="text-lg font-semibold text-white">
@@ -877,22 +1738,28 @@ const handleDrop = (e, sourceType) => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 
+          {/* STEP 1 */}
+
           <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
             <p className="text-xs text-gray-500">
               STEP 01
             </p>
 
             <p className="text-white font-medium mt-2">
-              Extraction
+              AI Extraction
             </p>
 
             <p className="text-gray-500 text-xs mt-1">
-              Convert field information into structured data.
+              Gemini extracts project, date, discipline, progress and execution information from the DPR.
             </p>
+
           </div>
 
+          {/* STEP 2 */}
 
           <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
             <p className="text-xs text-gray-500">
               STEP 02
             </p>
@@ -904,10 +1771,13 @@ const handleDrop = (e, sourceType) => {
             <p className="text-gray-500 text-xs mt-1">
               Map the field update to the relevant L5/L6 activity.
             </p>
+
           </div>
 
+          {/* STEP 3 */}
 
           <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
+
             <p className="text-xs text-gray-500">
               STEP 03
             </p>
@@ -919,19 +1789,23 @@ const handleDrop = (e, sourceType) => {
             <p className="text-gray-500 text-xs mt-1">
               Route uncertain or conflicting updates for review.
             </p>
+
           </div>
 
         </div>
 
       </div>
 
+      {/* ===================================================
+          REPORT TABLE
+      =================================================== */}
 
-      {/* Reports Table */}
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
 
         <div className="flex items-center justify-between">
 
           <div>
+
             <h3 className="text-lg font-semibold text-white">
               Field Report Records
             </h3>
@@ -939,6 +1813,7 @@ const handleDrop = (e, sourceType) => {
             <p className="text-gray-400 text-sm mt-1">
               Current execution inputs and reconciliation status
             </p>
+
           </div>
 
           <span className="text-xs text-gray-500">
@@ -947,19 +1822,33 @@ const handleDrop = (e, sourceType) => {
 
         </div>
 
-
         <div className="mt-6 overflow-x-auto">
 
           {loading ? (
             <div className="py-10 text-center">
+
               <p className="text-gray-400 text-sm">
                 Loading field reports...
               </p>
+
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="py-10 text-center">
+
+              <p className="text-gray-400 text-sm">
+                No field reports found
+              </p>
+
+              <p className="text-gray-600 text-xs mt-1">
+                Upload a DPR or add a field update to create a report.
+              </p>
+
             </div>
           ) : (
             <table className="w-full text-sm">
 
               <thead>
+
                 <tr className="border-b border-[#252d38] text-left">
 
                   <th className="pb-3 pr-5 text-gray-500 font-medium">
@@ -1003,123 +1892,177 @@ const handleDrop = (e, sourceType) => {
                   </th>
 
                 </tr>
-              </thead>
 
+              </thead>
 
               <tbody>
 
-                {reports.map((report) => {
+                {reports.map(
+                  (report) => {
 
-                  const matchingStatus =
-                    formatMatchingStatus(
-                      report.matching_status
-                    )
+                    const matchingStatus =
+                      formatMatchingStatus(
+                        report.matching_status
+                      )
 
-                  return (
-                    <tr
-                      key={report.id}
-                      className="border-b border-[#252d38] last:border-0"
-                    >
+                    return (
+                      <tr
+                        key={
+                          report.id
+                        }
+                        className="border-b border-[#252d38] last:border-0"
+                      >
 
-                      <td className="py-4 pr-5">
-                        <p className="text-white font-medium">
-                          {report.report_code}
-                        </p>
-                      </td>
+                        {/* Report */}
 
+                        <td className="py-4 pr-5">
 
-                      <td className="py-4 pr-5">
-                        <span className="text-gray-300">
-                          {report.source_type || "—"}
-                        </span>
-                      </td>
-
-
-                      <td className="py-4 pr-5">
-                        <span className="text-gray-400">
-                          {report.discipline || "—"}
-                        </span>
-                      </td>
-
-
-                      <td className="py-4 pr-5">
-                        <span className="text-gray-400">
-                          {formatDate(report.report_date)}
-                        </span>
-                      </td>
-
-
-                      <td className="py-4 pr-5">
-                        <p className="text-white">
-                          {report.activity_name ||
-                            report.activity_code ||
-                            "Pending AI Match"}
-                        </p>
-
-                        {report.activity_code && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {report.activity_code}
+                          <p className="text-white font-medium">
+                            {report.report_code ||
+                              "—"}
                           </p>
-                        )}
-                      </td>
 
+                        </td>
 
-                      <td className="py-4 pr-5">
-                        <span className="text-gray-300">
-                          {formatProgress(
-                            report.reported_progress
+                        {/* Source */}
+
+                        <td className="py-4 pr-5">
+
+                          <span className="text-gray-300">
+                            {report.source_type ||
+                              "—"}
+                          </span>
+
+                        </td>
+
+                        {/* Discipline */}
+
+                        <td className="py-4 pr-5">
+
+                          <span className="text-gray-400">
+                            {report.discipline ||
+                              "—"}
+                          </span>
+
+                        </td>
+
+                        {/* Date */}
+
+                        <td className="py-4 pr-5">
+
+                          <span className="text-gray-400">
+                            {formatDate(
+                              report.report_date
+                            )}
+                          </span>
+
+                        </td>
+
+                        {/* Activity */}
+
+                        <td className="py-4 pr-5">
+
+                          <p className="text-white">
+
+                            {report.activity_name ||
+                              report.activity_code ||
+                              "Pending AI Match"}
+
+                          </p>
+
+                          {report.activity_code && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {report.activity_code}
+                            </p>
                           )}
-                        </span>
-                      </td>
 
+                        </td>
 
-                      <td className="py-4 pr-5">
-                        <span
-                          className={statusClass(
-                            formatProcessingStatus(report)
-                          )}
-                        >
-                          {formatProcessingStatus(report)}
-                        </span>
-                      </td>
+                        {/* Progress */}
 
+                        <td className="py-4 pr-5">
 
-                      <td className="py-4 pr-5">
-                        <span
-                          className={statusClass(
-                            formatExtractionStatus(report)
-                          )}
-                        >
-                          {formatExtractionStatus(report)}
-                        </span>
-                      </td>
+                          <span className="text-gray-300">
+                            {formatProgress(
+                              report.reported_progress
+                            )}
+                          </span>
 
+                        </td>
 
-                      <td className="py-4 pr-5">
-                        <span
-                          className={statusClass(
-                            matchingStatus
-                          )}
-                        >
-                          {matchingStatus}
-                        </span>
-                      </td>
+                        {/* Processing */}
 
+                        <td className="py-4 pr-5">
 
-                      <td className="py-4">
-                        <span className="text-gray-300">
-                          {report.match_confidence !== null &&
-                          report.match_confidence !== undefined
-                            ? `${Number(
-                                report.match_confidence
-                              )}%`
-                            : "—"}
-                        </span>
-                      </td>
+                          <span
+                            className={statusClass(
+                              formatProcessingStatus(
+                                report
+                              )
+                            )}
+                          >
+                            {formatProcessingStatus(
+                              report
+                            )}
+                          </span>
 
-                    </tr>
-                  )
-                })}
+                        </td>
+
+                        {/* Extraction */}
+
+                        <td className="py-4 pr-5">
+
+                          <span
+                            className={statusClass(
+                              formatExtractionStatus(
+                                report
+                              )
+                            )}
+                          >
+                            {formatExtractionStatus(
+                              report
+                            )}
+                          </span>
+
+                        </td>
+
+                        {/* Matching */}
+
+                        <td className="py-4 pr-5">
+
+                          <span
+                            className={statusClass(
+                              matchingStatus
+                            )}
+                          >
+                            {matchingStatus}
+                          </span>
+
+                        </td>
+
+                        {/* Confidence */}
+
+                        <td className="py-4">
+
+                          <span className="text-gray-300">
+
+                            {report.match_confidence !==
+                              null &&
+                            report.match_confidence !==
+                              undefined
+                              ? `${Number(
+                                  report.match_confidence
+                                )}%`
+                              : "—"}
+
+                          </span>
+
+                        </td>
+
+                      </tr>
+                    )
+                  }
+                )}
 
               </tbody>
 
@@ -1128,25 +2071,12 @@ const handleDrop = (e, sourceType) => {
 
         </div>
 
-
-        {!loading && reports.length === 0 && (
-          <div className="py-10 text-center">
-
-            <p className="text-gray-400 text-sm">
-              No field reports found
-            </p>
-
-            <p className="text-gray-600 text-xs mt-1">
-              Add a field update to create the first report.
-            </p>
-
-          </div>
-        )}
-
       </div>
 
+      {/* ===================================================
+          ARCHITECTURE NOTE
+      =================================================== */}
 
-      {/* Architecture Note */}
       <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-5">
 
         <p className="text-xs text-gray-500">

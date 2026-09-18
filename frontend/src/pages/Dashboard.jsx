@@ -8,12 +8,12 @@ const inputSources = [
   {
     title: "Schedule",
     description: "Import Primavera / P6 schedule",
-    formats: "XER / XML / XLSX",
+    formats: "XLSX / XLS",
   },
   {
     title: "DPR / Field Reports",
     description: "Upload daily site execution reports",
-    formats: "PDF / DOCX / XLSX",
+    formats: "JPG / PNG / WEBP",
   },
   {
     title: "Progress & Materials",
@@ -97,33 +97,240 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-        const handleDragOver = (e, sourceType) => {
-        e.preventDefault()
-        e.stopPropagation()
-        setDraggingType(sourceType)
+  const [scheduleUploading, setScheduleUploading] = useState(false)
+  const [scheduleImport, setScheduleImport] = useState(null)
+
+  const handleDragOver = (e, sourceType) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDraggingType(sourceType)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDraggingType(null)
+  }
+
+  const handleDrop = (e, sourceType) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    setDraggingType(null)
+
+    const file = e.dataTransfer.files?.[0]
+
+    if (!file) return
+
+    if (sourceType === "Schedule") {
+      uploadSchedule(file)
+      return
+    }
+
+    if (sourceType === "DPR / Field Reports") {
+      uploadDprImage(file)
+      return
+    }
+
+    setUploadedFiles((prev) => ({
+      ...prev,
+      [sourceType]: file.name,
+    }))
+  }
+
+  async function uploadSchedule(file) {
+    if (!file) return
+
+    const extension = file.name.toLowerCase().split(".").pop()
+
+    if (extension !== "xlsx" && extension !== "xls") {
+      alert("Please upload a P6 schedule in XLSX or XLS format.")
+      return
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      alert("Schedule file must be smaller than 25 MB.")
+      return
+    }
+
+    try {
+      setScheduleUploading(true)
+      setError("")
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      console.log("Uploading P6 schedule:", file.name)
+
+      const response = await fetch(
+        `${API_BASE}/ingestion/schedule`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      )
+
+      const data = await response.json()
+
+      console.log("P6 IMPORT RESPONSE:", data)
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to import P6 schedule"
+        )
       }
 
-      const handleDragLeave = (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        setDraggingType(null)
+      const schedule = data.schedule || {}
+      const project = data.project || {}
+
+      setUploadedFiles((prev) => ({
+        ...prev,
+        Schedule: file.name,
+      }))
+
+      setScheduleImport({
+        filename: file.name,
+        projectName: project.name || "Imported P6 Project",
+        projectCode: project.projectCode || "—",
+        activityCount: schedule.activityCount ?? 0,
+        inserted: schedule.inserted ?? 0,
+        updated: schedule.updated ?? 0,
+        sheets: schedule.sheets || [],
+        projectStart: schedule.projectStart || null,
+        projectEnd: schedule.projectEnd || null,
+      })
+
+      setUploadType(null)
+
+      await loadDashboard()
+
+      alert(
+        `P6 SCHEDULE IMPORTED SUCCESSFULLY\n\n` +
+        `Project: ${project.name || "—"}\n` +
+        `Project Code: ${project.projectCode || "—"}\n\n` +
+        `Activities Imported: ${schedule.activityCount ?? 0}\n` +
+        `Inserted: ${schedule.inserted ?? 0}\n` +
+        `Updated: ${schedule.updated ?? 0}\n\n` +
+        `Sheets Found: ${schedule.sheets?.length || 0}\n\n` +
+        `All schedule data has been saved to PostgreSQL.`
+      )
+    } catch (err) {
+      console.error("P6 upload error:", err)
+
+      setError(err.message || "Failed to import P6 schedule")
+
+      alert(
+        `P6 schedule import failed:\n\n${err.message}`
+      )
+    } finally {
+      setScheduleUploading(false)
+    }
+  }
+
+  async function uploadDprImage(file) {
+    if (!file) return
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please upload a JPG, PNG or WEBP DPR image.")
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("DPR image must be smaller than 10 MB.")
+      return
+    }
+
+    try {
+      setError("")
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      console.log("Uploading DPR image:", file.name)
+
+      const response = await fetch(
+        `${API_BASE}/ingestion/image`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      )
+
+      const data = await response.json()
+
+      console.log("DPR AI RESPONSE:", data)
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to process DPR image"
+        )
       }
 
-      const handleDrop = (e, sourceType) => {
-        e.preventDefault()
-        e.stopPropagation()
+      setUploadedFiles((prev) => ({
+        ...prev,
+        "DPR / Field Reports": file.name,
+      }))
 
-        setDraggingType(null)
+      setUploadType(null)
 
-        const file = e.dataTransfer.files?.[0]
+      await loadDashboard()
 
-        if (!file) return
+      const extracted = data.extracted || {}
+      const matching = data.matching || {}
+      const matchedActivity =
+        matching.activity || data.activity || null
 
-        setUploadedFiles((prev) => ({
-          ...prev,
-          [sourceType]: file.name,
-        }))
-      }
+      alert(
+        `DPR PROCESSED SUCCESSFULLY\n\n` +
+        `Discipline: ${extracted.discipline || "Not Found"}\n` +
+        `Progress: ${
+          extracted.reportedProgress !== null &&
+          extracted.reportedProgress !== undefined
+            ? extracted.reportedProgress + "%"
+            : "Not Found"
+        }\n` +
+        `Status: ${extracted.status || "Not Found"}\n\n` +
+        `Activity Code: ${
+          matchedActivity?.activity_code ||
+          matchedActivity?.activityCode ||
+          "Unmatched"
+        }\n` +
+        `Activity Name: ${
+          matchedActivity?.name ||
+          "Unmatched Activity"
+        }\n` +
+        `Match Confidence: ${
+          matching.confidence ?? 0
+        }%\n` +
+        `Extraction Confidence: ${
+          extracted.extractionConfidence ?? "N/A"
+        }%\n\n` +
+        `Matching Status: ${
+          matching.status || "UNKNOWN"
+        }\n\n` +
+        `The report has been saved to PostgreSQL.`
+      )
+    } catch (err) {
+      console.error("DPR upload error:", err)
+
+      setError(
+        err.message || "Failed to process DPR image"
+      )
+
+      alert(
+        `DPR processing failed:\n\n${err.message}`
+      )
+    }
+  }
 
   /*
   ============================================================
@@ -704,6 +911,115 @@ const Dashboard = () => {
 
 
       {/* =====================================================
+          P6 SCHEDULE IMPORT STATUS
+      ===================================================== */}
+
+      {scheduleUploading && (
+        <div className="mt-8 bg-[#151b24] border border-blue-500/30 rounded-xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                Importing P6 Schedule
+              </h3>
+
+              <p className="text-gray-400 text-sm mt-1">
+                Reading workbook, extracting activities and saving schedule data to PostgreSQL...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scheduleImport && !scheduleUploading && (
+        <div className="mt-8 bg-[#151b24] border border-[#252d38] rounded-xl p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+
+            <div>
+              <p className="text-xs text-gray-500">
+                P6 SCHEDULE IMPORT
+              </p>
+
+              <h3 className="text-lg font-semibold text-white mt-1">
+                {scheduleImport.projectName}
+              </h3>
+
+              <p className="text-gray-400 text-sm mt-1">
+                {scheduleImport.projectCode}
+              </p>
+
+              <p className="text-gray-500 text-xs mt-3 truncate max-w-xl">
+                {scheduleImport.filename}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+              <div className="bg-[#10151c] rounded-lg px-4 py-3">
+                <p className="text-xs text-gray-500">
+                  Activities
+                </p>
+
+                <p className="text-xl font-semibold text-white mt-1">
+                  {scheduleImport.activityCount}
+                </p>
+              </div>
+
+              <div className="bg-[#10151c] rounded-lg px-4 py-3">
+                <p className="text-xs text-gray-500">
+                  Inserted
+                </p>
+
+                <p className="text-xl font-semibold text-green-400 mt-1">
+                  {scheduleImport.inserted}
+                </p>
+              </div>
+
+              <div className="bg-[#10151c] rounded-lg px-4 py-3">
+                <p className="text-xs text-gray-500">
+                  Updated
+                </p>
+
+                <p className="text-xl font-semibold text-blue-400 mt-1">
+                  {scheduleImport.updated}
+                </p>
+              </div>
+
+              <div className="bg-[#10151c] rounded-lg px-4 py-3">
+                <p className="text-xs text-gray-500">
+                  Sheets
+                </p>
+
+                <p className="text-xl font-semibold text-white mt-1">
+                  {scheduleImport.sheets.length}
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>
+              Start: {scheduleImport.projectStart || "—"}
+            </span>
+
+            <span>
+              End: {scheduleImport.projectEnd || "—"}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => navigate("/activities")}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              View Imported Activities →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
           PROGRESS TREND CHART
       ===================================================== */}
 
@@ -1232,7 +1548,7 @@ const Dashboard = () => {
             ? "Import Primavera / P6 schedule"
             : uploadType ===
               "DPR / Field Reports"
-            ? "Upload daily site execution reports"
+            ? ".jpg,.jpeg,.png,.webp"
             : uploadType ===
               "Progress & Materials"
             ? "Import progress and material data"
@@ -1241,7 +1557,7 @@ const Dashboard = () => {
 
         accept={
           uploadType === "Schedule"
-            ? ".xer,.xml,.xlsx,.xls"
+            ? ".xlsx,.xls"
             : uploadType ===
               "DPR / Field Reports"
             ? ".pdf,.doc,.docx,.xlsx,.xls"
@@ -1252,6 +1568,16 @@ const Dashboard = () => {
         }
 
         onFileSelect={(file) => {
+
+          if (uploadType === "Schedule") {
+            uploadSchedule(file)
+            return
+          }
+
+          if (uploadType === "DPR / Field Reports") {
+            uploadDprImage(file)
+            return
+          }
 
           setUploadedFiles((prev) => ({
             ...prev,

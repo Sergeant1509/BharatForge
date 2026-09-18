@@ -5,6 +5,7 @@ const menu = [
   ["Dashboard", "/"],
   ["Projects", "/projects"],
   ["Activities", "/activities"],
+  ["Schedule", "/schedule"],
   ["Field Reports", "/reports"],
   ["Verification", "/verification"],
   ["Audit Trail", "/audit-trail"],
@@ -33,11 +34,6 @@ const Sidebar = () => {
     navigate("/login")
   }
 
-  const handleNavigation = (path) => {
-    navigate(path)
-    setMobileOpen(false)
-  }
-
   return (
     <>
       {/* MOBILE TOP BAR */}
@@ -46,10 +42,12 @@ const Sidebar = () => {
 
         <div className="flex items-center gap-3">
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg ">
-            <span className="font-bold text-white">
-             <img src="/icon.jpeg" className="rounded-xl" />
-            </span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg">
+            <img
+              src="/icon.jpeg"
+              className="rounded-xl"
+              alt="BharatForge"
+            />
           </div>
 
           <span className="font-semibold text-white">
@@ -57,7 +55,6 @@ const Sidebar = () => {
           </span>
 
         </div>
-
 
         <button
           type="button"
@@ -91,6 +88,7 @@ const Sidebar = () => {
           "
           onClick={() => setMobileOpen(false)}
         >
+
           <div
             className="
               mt-16
@@ -223,6 +221,7 @@ const Sidebar = () => {
             </div>
 
           </div>
+
         </div>
       )}
 
@@ -251,12 +250,15 @@ const Sidebar = () => {
         <div className="flex h-20 items-center gap-3 border-b border-[#252d38] px-6">
 
           <div className="flex h-10 w-10 items-center justify-center rounded-xl">
-            <span className="text-lg font-bold text-white">
-              <img src="/icon.jpeg" className="rounded-xl" />
-            </span>
+            <img
+              src="/icon.jpeg"
+              className="rounded-xl"
+              alt="BharatForge"
+            />
           </div>
 
           <div>
+
             <p className="font-semibold text-white">
               BharatForge
             </p>
@@ -264,6 +266,7 @@ const Sidebar = () => {
             <p className="text-[10px] text-gray-500">
               Execution Intelligence
             </p>
+
           </div>
 
         </div>
@@ -372,12 +375,9 @@ const Sidebar = () => {
             "
           >
 
-            {/* PROFILE PHOTO / AVATAR */}
-
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
               B
             </div>
-
 
             <div className="min-w-0 flex-1">
 
@@ -390,7 +390,6 @@ const Sidebar = () => {
               </p>
 
             </div>
-
 
             <span className="text-gray-500">
               ⋮

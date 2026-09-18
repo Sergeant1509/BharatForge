@@ -13,18 +13,25 @@ import Signup from "./pages/Signup"
 import Dashboard from "./pages/Dashboard"
 import Projects from "./pages/Projects"
 import Activities from "./pages/Activities"
+import Schedule from "./pages/Schedule"
 import Reports from "./pages/Reports"
 import Verification from "./pages/Verification"
 import ActivityDetails from "./pages/ActivityDetails"
 import AuditTrail from "./pages/AuditTrail"
 
+
 const ProtectedLayout = ({ children }) => {
+
   const [loading, setLoading] = useState(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
+
   useEffect(() => {
+
     const checkAuth = async () => {
+
       try {
+
         const response = await fetch(
           "http://localhost:5000/api/auth/me",
           {
@@ -35,30 +42,53 @@ const ProtectedLayout = ({ children }) => {
         if (response.ok) {
           setIsLoggedIn(true)
         }
+
       } catch (error) {
-        console.error("Auth check failed:", error)
+
+        console.error(
+          "Auth check failed:",
+          error
+        )
+
       } finally {
+
         setLoading(false)
+
       }
     }
 
+
     checkAuth()
+
   }, [])
 
+
   if (loading) {
+
     return (
       <div className="min-h-screen bg-[#11161d] text-white flex items-center justify-center">
         Checking authentication...
       </div>
     )
+
   }
 
+
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace />
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    )
+
   }
+
 
   return (
     <div className="min-h-screen bg-[#11161d] text-white">
+
       <Sidebar />
 
       <main
@@ -75,18 +105,27 @@ const ProtectedLayout = ({ children }) => {
           lg:py-8
         "
       >
+
         {children}
+
       </main>
+
     </div>
   )
 }
 
+
 const App = () => {
+
   return (
+
     <BrowserRouter>
+
       <Routes>
 
-        {/* PUBLIC ROUTES */}
+        {/* ========================================
+            PUBLIC ROUTES
+        ======================================== */}
 
         <Route
           path="/login"
@@ -98,7 +137,10 @@ const App = () => {
           element={<Signup />}
         />
 
-        {/* PROTECTED ROUTES */}
+
+        {/* ========================================
+            PROTECTED ROUTES
+        ======================================== */}
 
         <Route
           path="/"
@@ -109,6 +151,7 @@ const App = () => {
           }
         />
 
+
         <Route
           path="/projects"
           element={
@@ -117,6 +160,7 @@ const App = () => {
             </ProtectedLayout>
           }
         />
+
 
         <Route
           path="/activities"
@@ -127,6 +171,21 @@ const App = () => {
           }
         />
 
+
+        {/* ========================================
+            P6 SCHEDULE
+        ======================================== */}
+
+        <Route
+          path="/schedule"
+          element={
+            <ProtectedLayout>
+              <Schedule />
+            </ProtectedLayout>
+          }
+        />
+
+
         <Route
           path="/reports"
           element={
@@ -135,6 +194,7 @@ const App = () => {
             </ProtectedLayout>
           }
         />
+
 
         <Route
           path="/verification"
@@ -145,6 +205,7 @@ const App = () => {
           }
         />
 
+
         <Route
           path="/audit-trail"
           element={
@@ -153,6 +214,7 @@ const App = () => {
             </ProtectedLayout>
           }
         />
+
 
         <Route
           path="/activity/:id"
@@ -163,16 +225,27 @@ const App = () => {
           }
         />
 
-        {/* FALLBACK */}
+
+        {/* ========================================
+            FALLBACK
+        ======================================== */}
 
         <Route
           path="*"
-          element={<Navigate to="/" replace />}
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
         />
 
       </Routes>
+
     </BrowserRouter>
+
   )
 }
+
 
 export default App

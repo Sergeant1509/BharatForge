@@ -8,13 +8,16 @@
     "start": "node src/server.js"
   },
   "dependencies": {
+    "@google/genai": "^2.23.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.16.3"
+    "multer": "^2.4.0",
+    "pg": "^8.16.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
