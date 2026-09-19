@@ -659,11 +659,11 @@ const Dashboard = () => {
           </p>
 
           <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
-            OIL — Gas Processing Plant
+            Development of Approach Road (~700 m), Well Plinth, Perimeter Dwarf Wall, Road over Plinth and CC/RCC Foundation for E-2000 VFD Rig at Tengakhat & Chabua, Central Field-West, Dibrugarh.
           </h2>
 
           <p className="text-gray-400 mt-2">
-            Project execution overview
+            CDC2630P27
           </p>
 
         </div>

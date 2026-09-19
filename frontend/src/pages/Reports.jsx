@@ -213,41 +213,19 @@ const Reports = () => {
   }
 
   // =========================================================
-  // AI DPR IMAGE PROCESSING
+  // AI DPR FILE PROCESSING
   // =========================================================
 
-  async function uploadDPRImage(file) {
+  async function uploadDPR(file) {
     if (!file) return
 
-    // Make sure this is actually an image
-    if (!file.type.startsWith("image/")) {
-      selectFile(
-        file,
-        "Daily Report"
-      )
-      return
-    }
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/jpg",
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      alert(
-        "Only JPG, PNG and WEBP images are supported."
-      )
-      return
-    }
 
     if (
       file.size >
       10 * 1024 * 1024
     ) {
       alert(
-        "Image size must be less than 10 MB."
+        "File size must be less than 10 MB."
       )
       return
     }
@@ -266,7 +244,7 @@ const Reports = () => {
       )
 
       console.log(
-        "Uploading DPR image:",
+        "Uploading DPR:",
         file.name
       )
 
@@ -276,7 +254,7 @@ const Reports = () => {
 
       const response =
         await fetch(
-          `${API_BASE}/ingestion/image`,
+          `${API_BASE}/ingestion/dpr`,
           {
             method: "POST",
             credentials: "include",
@@ -302,7 +280,7 @@ const Reports = () => {
       ) {
         throw new Error(
           data.message ||
-            "Failed to process DPR image"
+            "Failed to process DPR"
         )
       }
 
@@ -469,12 +447,12 @@ const Reports = () => {
 
       setError(
         err.message ||
-          "Failed to process DPR image"
+          "Failed to process DPR"
       )
 
       alert(
         err.message ||
-          "Failed to process DPR image"
+          "Failed to process DPR"
       )
     } finally {
       setAiUploading(false)
@@ -766,18 +744,11 @@ const Reports = () => {
 
     if (!file) return
 
-    // Image DPR → Gemini AI
-    if (
-      sourceType ===
-        "Daily Report" &&
-      file.type.startsWith(
-        "image/"
-      )
-    ) {
-      uploadDPRImage(file)
-      return
-    }
-
+    // DPR → Gemini AI
+      if (sourceType === "Daily Report") {
+        uploadDPR(file)
+        return
+      }
     // Other file types → normal form
     setSelectedFile(file)
 
@@ -1244,7 +1215,7 @@ const Reports = () => {
 
             <input
               type="file"
-              accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.webp"
+              accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp"
               className="hidden"
               disabled={aiUploading}
               onChange={(e) => {
@@ -1254,18 +1225,7 @@ const Reports = () => {
 
                 if (!file) return
 
-                if (
-                  file.type.startsWith(
-                    "image/"
-                  )
-                ) {
-                  uploadDPRImage(file)
-                } else {
-                  selectFile(
-                    file,
-                    "Daily Report"
-                  )
-                }
+                uploadDPR(file)
 
                 e.target.value = ""
 

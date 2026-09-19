@@ -121,7 +121,9 @@ Rules:
 export async function extractFieldReportFromImage(
     imageBuffer,
     mimeType
-) {
+) 
+
+{
     if (!imageBuffer || imageBuffer.length === 0) {
         throw new Error("Image data is required");
     }
@@ -168,4 +170,100 @@ export async function extractFieldReportFromImage(
     }
 
     return extracted;
+}
+export async function extractFieldReportFromPdf(
+    pdfText
+) {
+    if (!pdfText || !pdfText.trim()) {
+        throw new Error("PDF text is empty");
+    }
+
+    const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash-lite",
+
+        contents: [
+            {
+                text: `
+SOURCE TYPE: PDF DAILY PROGRESS REPORT
+
+Extract the required field execution information from this
+PDF content.
+
+--- PDF CONTENT START ---
+${pdfText}
+--- PDF CONTENT END ---
+
+${extractionPrompt}
+                `,
+            },
+        ],
+
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: extractionSchema,
+            temperature: 0,
+        },
+    });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new Error("Gemini returned an empty response");
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Gemini raw response:", text);
+        throw new Error("Gemini returned invalid JSON");
+    }
+}
+
+
+export async function extractFieldReportFromSpreadsheet(
+    spreadsheetText
+) {
+    if (!spreadsheetText || !spreadsheetText.trim()) {
+        throw new Error("Spreadsheet data is empty");
+    }
+
+    const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash-lite",
+
+        contents: [
+            {
+                text: `
+SOURCE TYPE: XLSX / XLS / CSV DAILY PROGRESS REPORT
+
+Analyze the following structured spreadsheet data and extract
+the actual field execution information.
+
+--- SPREADSHEET CONTENT START ---
+${spreadsheetText}
+--- SPREADSHEET CONTENT END ---
+
+${extractionPrompt}
+                `,
+            },
+        ],
+
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: extractionSchema,
+            temperature: 0,
+        },
+    });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new Error("Gemini returned an empty response");
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Gemini raw response:", text);
+        throw new Error("Gemini returned invalid JSON");
+    }
 }
