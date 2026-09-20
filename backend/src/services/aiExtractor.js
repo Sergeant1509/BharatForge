@@ -29,6 +29,12 @@ const extractionSchema = {
             type: "string",
             nullable: true,
         },
+        activityCode: {
+        type: "string",
+        nullable: true,
+        description:
+        "Exact Primavera/P6 Activity ID or Activity Code appearing in the field report. Example: CDC2630P27-001. Return the exact code as written. Do not return Pending, null, empty string, or an activity name."
+        },
         reportedProgress: {
             type: "number",
             nullable: true,
@@ -58,6 +64,7 @@ const extractionSchema = {
         "reportDate",
         "discipline",
         "activityDescription",
+        "activityCode",
         "reportedProgress",
         "actualStart",
         "actualFinish",
@@ -85,6 +92,7 @@ Extract these fields:
 - projectCode
 - reportDate
 - discipline
+- activityCode
 - activityDescription
 - reportedProgress
 - actualStart
@@ -108,14 +116,30 @@ Rules:
 1. Never invent information.
 2. Never invent an activity code.
 3. Do not perform L5/L6 activity matching.
-4. If information is unavailable, return null.
-5. Dates must use YYYY-MM-DD.
-6. reportedProgress must be between 0 and 100.
-7. If handwriting is unclear, reduce extractionConfidence.
-8. If an important field is uncertain, set needsReview to true.
-9. activityDescription must describe the actual work performed.
-10. Preserve the meaning of handwritten information.
-11. This is document extraction only.
+4. Do not perform L5/L6 activity matching.
+5. If information is unavailable, return null.
+6. Dates must use YYYY-MM-DD.
+7. reportedProgress must be between 0 and 100.
+8. If handwriting is unclear, reduce extractionConfidence.
+9. If an important field is uncertain, set needsReview to true.
+10. activityDescription must describe the actual work performed.
+11. Preserve the meaning of handwritten information.
+12. This is document extraction only.
+
+ACTIVITY CODE RULE:
+Extract the exact Primavera/P6 Activity ID / Activity Code from the document.
+
+Example:
+CDC2630P27-001
+
+Do NOT return:
+- Pending
+- null
+- empty string
+- activity name
+- description
+
+If an Activity ID appears anywhere in the DPR, copy it exactly.
 `;
 
 export async function extractFieldReportFromImage(

@@ -55,20 +55,32 @@ const extractDPR = async (file) => {
     }
 
     if (mimetype === "application/pdf") {
-        const pdfParse = (await import("pdf-parse")).default;
+    const pdfModule = await import("pdf-parse");
 
-        const pdfData = await pdfParse(buffer);
+    const PDFParse = pdfModule.PDFParse;
 
-        if (!pdfData.text?.trim()) {
-            throw new Error(
-                "No readable text was found in the PDF"
-            );
-        }
-
-        return await extractFieldReportFromPdf(
-            pdfData.text
+    if (!PDFParse) {
+        throw new Error(
+            "PDFParse is not available from pdf-parse"
         );
     }
+
+    const parser = new PDFParse({
+        data: buffer,
+    });
+
+    const pdfData = await parser.getText();
+
+    if (!pdfData?.text?.trim()) {
+        throw new Error(
+            "No readable text was found in the PDF"
+        );
+    }
+
+    return await extractFieldReportFromPdf(
+        pdfData.text
+    );
+}
 
     if (
         mimetype ===
@@ -119,7 +131,6 @@ ${XLSX.utils.sheet_to_csv(sheet)}
         `Unsupported file type: ${file.originalname}`
     );
 };
-
 const processDPR = async (req, res) => {
     const client = await pool.connect();
 
@@ -198,17 +209,80 @@ const processDPR = async (req, res) => {
         // STEP 3: MATCH ACTIVITY TO L5/L6 SCHEDULE
         // =========================================================
 
-        const matching = await matchActivity({
-            projectId: project.id,
-            discipline: extracted.discipline,
-            description:
-                extracted.activityDescription,
-        });
+        let matching = null
 
-        console.log(
-            "AI MATCHING RESULT:",
-            matching
-        );
+if (extracted.activityCode) {
+    const exactActivityResult =
+        await client.query(
+            `
+                SELECT
+                    id,
+                    activity_code,
+                    name,
+                    discipline
+                FROM activities
+                WHERE project_id = $1
+                AND LOWER(TRIM(activity_code)) =
+                    LOWER(TRIM($2))
+                LIMIT 1
+            `,
+            [
+                project.id,
+                extracted.activityCode,
+            ]
+        )
+
+    if (exactActivityResult.rows.length > 0) {
+        const activity =
+            exactActivityResult.rows[0]
+
+        matching = {
+            matched: true,
+            confidence: 100,
+            status: "AUTO_LINKED",
+            activity: {
+                id: activity.id,
+                activity_code:
+                    activity.activity_code,
+                name: activity.name,
+                discipline:
+                    activity.discipline,
+            },
+            candidates: [
+                {
+                    id: activity.id,
+                    activity_code:
+                        activity.activity_code,
+                    name: activity.name,
+                    discipline:
+                        activity.discipline,
+                    confidence: 100,
+                },
+            ],
+        }
+    }
+}
+
+if (!matching) {
+    matching = await matchActivity({
+        projectId: project.id,
+        discipline: extracted.discipline,
+        description:
+            extracted.activityDescription,
+        activityCode:
+            extracted.activityCode,
+    })
+}
+
+console.log(
+    "EXTRACTED ACTIVITY CODE:",
+    extracted.activityCode
+)
+
+console.log(
+    "AI MATCHING RESULT:",
+    matching
+)
 
         let activityId = null;
 
@@ -321,23 +395,26 @@ const processDPR = async (req, res) => {
                 const previousActivity =
                     activityResult.rows[0];
 
-                const previousProgress =
-                    previousActivity.actual_progress;
+                const previousProgress = Number(
+    previousActivity.actual_progress || 0
+);
 
-                const previousStatus =
-                    previousActivity.status;
+const previousStatus =
+    previousActivity.status;
 
-                const newProgress =
-                    extracted.reportedProgress !==
-                        null &&
-                    extracted.reportedProgress !==
-                        undefined
-                        ? Number(
-                              extracted.reportedProgress
-                          )
-                        : Number(
-                              previousProgress || 0
-                          );
+const reportedProgress =
+    extracted.reportedProgress !== null &&
+    extracted.reportedProgress !== undefined
+        ? Number(extracted.reportedProgress)
+        : null;
+
+const newProgress =
+    reportedProgress !== null
+        ? Math.min(
+            100,
+            previousProgress + reportedProgress
+        )
+        : previousProgress;
 
                 let newStatus =
                     extracted.status ||

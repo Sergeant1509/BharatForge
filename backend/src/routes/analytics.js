@@ -49,7 +49,11 @@ function calculateRisk({
 */
 router.get("/activity-risk", async (req, res) => {
     try {
-        const result = await pool.query(`
+        
+        const { project_id } = req.query
+
+        const result = await pool.query(
+            `
             SELECT
                 id,
                 activity_code,
@@ -68,8 +72,15 @@ router.get("/activity-risk", async (req, res) => {
                 actual_start,
                 actual_finish
             FROM activities
+            ${
+                project_id
+                    ? "WHERE project_id = $1"
+                    : ""
+            }
             ORDER BY id ASC
-        `);
+            `,
+            project_id ? [project_id] : []
+        )
 
         const activities = result.rows.map((activity) => {
             const plannedProgress =
@@ -163,7 +174,10 @@ router.get("/project-summary", async (req, res) => {
         /*
             Fetch activity information.
         */
-        const activityResult = await pool.query(`
+       const { project_id } = req.query
+
+        const activityResult = await pool.query(
+            `
             SELECT
                 id,
                 project_id,
@@ -173,17 +187,32 @@ router.get("/project-summary", async (req, res) => {
                 status,
                 risk_level
             FROM activities
-        `);
+            ${
+                project_id
+                    ? "WHERE project_id = $1"
+                    : ""
+            }
+            `,
+            project_id ? [project_id] : []
+        )
 
 
         /*
             Fetch field-report matching information.
         */
-        const reportResult = await pool.query(`
-            SELECT
-                matching_status
-            FROM field_reports
-        `);
+        const reportResult = await pool.query(
+    `
+    SELECT
+        matching_status
+    FROM field_reports
+    ${
+        project_id
+            ? "WHERE project_id = $1"
+            : ""
+    }
+    `,
+    project_id ? [project_id] : []
+)
 
 
         const activities = activityResult.rows;

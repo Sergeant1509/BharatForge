@@ -60,39 +60,151 @@ router.get("/", async (req, res) => {
                 fr.id DESC;
         `);
 
-        const reportsWithCandidates = await Promise.all(
-            result.rows.map(async (report) => {
-                let candidates = [];
 
-                if (report.description) {
-                    const matchResult = await matchActivity({
-                        projectId: report.project_id,
-                        discipline: report.discipline,
-                        description: report.description
-                    });
+        const reportsWithCandidates =
+            await Promise.all(
+                result.rows.map(
+                    async (report) => {
 
-                    candidates = matchResult.candidates || [];
-                }
+                        let candidates = [];
 
-                return {
-                    ...report,
-                    candidates
-                };
-            })
-        );
+
+                        /*
+                        ------------------------------------------------
+                        STEP 1: Try AI/activity matcher
+                        ------------------------------------------------
+                        */
+
+                        if (report.description) {
+
+                            const matchResult =
+                                await matchActivity({
+                                    projectId:
+                                        report.project_id,
+                                    discipline:
+                                        report.discipline,
+                                    description:
+                                        report.description
+                                });
+
+                            candidates =
+                                matchResult.candidates ||
+                                [];
+                        }
+
+
+                        /*
+                        ------------------------------------------------
+                        STEP 2: Project activity fallback
+                        ------------------------------------------------
+                        */
+
+                        if (candidates.length === 0) {
+
+                            const activityResult =
+                                await pool.query(
+                                    `
+                                        SELECT
+                                            id,
+                                            activity_code,
+                                            name,
+                                            discipline
+                                        FROM activities
+                                        WHERE project_id = $1
+                                        ORDER BY id ASC
+                                        LIMIT 10
+                                    `,
+                                    [
+                                        report.project_id
+                                    ]
+                                );
+
+                            candidates =
+                                activityResult.rows.map(
+                                    (activity) => ({
+                                        id: activity.id,
+                                        activity_code:
+                                            activity.activity_code,
+                                        name:
+                                            activity.name,
+                                        discipline:
+                                            activity.discipline,
+                                        confidence: 0
+                                    })
+                                );
+                        }
+
+
+                        /*
+                        ------------------------------------------------
+                        STEP 3: Global fallback
+                        
+                        If project_id does not match the activity
+                        records, still provide activities for manual
+                        verification.
+                        ------------------------------------------------
+                        */
+
+                        if (candidates.length === 0) {
+
+                            const globalActivityResult =
+                                await pool.query(
+                                    `
+                                        SELECT
+                                            id,
+                                            activity_code,
+                                            name,
+                                            discipline
+                                        FROM activities
+                                        ORDER BY id ASC
+                                        LIMIT 20
+                                    `
+                                );
+
+                            candidates =
+                                globalActivityResult.rows.map(
+                                    (activity) => ({
+                                        id: activity.id,
+                                        activity_code:
+                                            activity.activity_code,
+                                        name:
+                                            activity.name,
+                                        discipline:
+                                            activity.discipline,
+                                        confidence: 0
+                                    })
+                                );
+                        }
+
+
+                        return {
+                            ...report,
+                            candidates
+                        };
+                    }
+                )
+            );
+
 
         res.json({
             success: true,
-            count: reportsWithCandidates.length,
-            data: reportsWithCandidates
+            count:
+                reportsWithCandidates.length,
+            data:
+                reportsWithCandidates
         });
 
     } catch (error) {
-        console.error("Verification fetch error:", error);
+
+        console.error(
+            "Verification fetch error:",
+            error
+        );
 
         res.status(500).json({
             success: false,
-            message: "Failed to fetch verification records",
+            message:
+                "Failed to fetch verification records",
             error: error.message
         });
     }
@@ -141,11 +253,14 @@ router.put("/:id", async (req, res) => {
         */
 
         if (!action) {
+
             return res.status(400).json({
                 success: false,
-                message: "action is required"
+                message:
+                    "action is required"
             });
         }
+
 
         const allowedActions = [
             "APPROVE",
@@ -153,7 +268,9 @@ router.put("/:id", async (req, res) => {
             "REJECT"
         ];
 
+
         if (!allowedActions.includes(action)) {
+
             return res.status(400).json({
                 success: false,
                 message:
@@ -170,19 +287,25 @@ router.put("/:id", async (req, res) => {
 
         let updatedProgress = null;
 
+
         if (
             reported_progress !== undefined &&
             reported_progress !== null &&
             reported_progress !== ""
         ) {
 
-            updatedProgress = Number(reported_progress);
+            updatedProgress =
+                Number(reported_progress);
+
 
             if (
-                Number.isNaN(updatedProgress) ||
+                Number.isNaN(
+                    updatedProgress
+                ) ||
                 updatedProgress < 0 ||
                 updatedProgress > 100
             ) {
+
                 return res.status(400).json({
                     success: false,
                     message:
@@ -194,19 +317,23 @@ router.put("/:id", async (req, res) => {
 
         /*
         ------------------------------------------------
-        APPROVE / CHANGE_MATCH require activity
+        CHANGE_MATCH requires activity.
+        
+        APPROVE does NOT require activity.
+        This allows UNMATCHED reports to be approved
+        without affecting any schedule activity.
         ------------------------------------------------
         */
 
         if (
-            (action === "APPROVE" ||
-                action === "CHANGE_MATCH") &&
+            action === "CHANGE_MATCH" &&
             !activity_id
         ) {
+
             return res.status(400).json({
                 success: false,
                 message:
-                    "activity_id is required for this action"
+                    "activity_id is required for CHANGE_MATCH"
             });
         }
 
@@ -226,27 +353,36 @@ router.put("/:id", async (req, res) => {
         ------------------------------------------------
         */
 
-        const reportResult = await client.query(
-            `
-                SELECT *
-                FROM field_reports
-                WHERE id = $1
-                FOR UPDATE
-            `,
-            [id]
-        );
+        const reportResult =
+            await client.query(
+                `
+                    SELECT *
+                    FROM field_reports
+                    WHERE id = $1
+                    FOR UPDATE
+                `,
+                [id]
+            );
 
-        if (reportResult.rows.length === 0) {
 
-            await client.query("ROLLBACK");
+        if (
+            reportResult.rows.length === 0
+        ) {
+
+            await client.query(
+                "ROLLBACK"
+            );
 
             return res.status(404).json({
                 success: false,
-                message: "Field report not found"
+                message:
+                    "Field report not found"
             });
         }
 
-        const report = reportResult.rows[0];
+
+        const report =
+            reportResult.rows[0];
 
 
         /*
@@ -256,11 +392,15 @@ router.put("/:id", async (req, res) => {
         */
 
         if (
-            report.matching_status === "VERIFIED" ||
-            report.matching_status === "REJECTED"
+            report.matching_status ===
+                "VERIFIED" ||
+            report.matching_status ===
+                "REJECTED"
         ) {
 
-            await client.query("ROLLBACK");
+            await client.query(
+                "ROLLBACK"
+            );
 
             return res.status(400).json({
                 success: false,
@@ -279,37 +419,46 @@ router.put("/:id", async (req, res) => {
 
         let selectedActivity = null;
 
+
         if (
-            (action === "APPROVE" ||
-                action === "CHANGE_MATCH") &&
+            (
+                action === "APPROVE" ||
+                action === "CHANGE_MATCH"
+            ) &&
             activity_id
         ) {
 
-            const activityResult = await client.query(
-                `
-                    SELECT
-                        id,
-                        activity_code,
-                        name,
-                        discipline,
-                        actual_progress,
-                        actual_start,
-                        actual_finish,
-                        status
-                    FROM activities
-                    WHERE id = $1
-                    AND project_id = $2
-                    FOR UPDATE
-                `,
-                [
-                    activity_id,
-                    report.project_id
-                ]
-            );
+            const activityResult =
+                await client.query(
+                    `
+                        SELECT
+                            id,
+                            activity_code,
+                            name,
+                            discipline,
+                            actual_progress,
+                            actual_start,
+                            actual_finish,
+                            status
+                        FROM activities
+                        WHERE id = $1
+                        AND project_id = $2
+                        FOR UPDATE
+                    `,
+                    [
+                        activity_id,
+                        report.project_id
+                    ]
+                );
 
-            if (activityResult.rows.length === 0) {
 
-                await client.query("ROLLBACK");
+            if (
+                activityResult.rows.length === 0
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
 
                 return res.status(400).json({
                     success: false,
@@ -317,6 +466,7 @@ router.put("/:id", async (req, res) => {
                         "Selected activity does not belong to this project"
                 });
             }
+
 
             selectedActivity =
                 activityResult.rows[0];
@@ -331,6 +481,7 @@ router.put("/:id", async (req, res) => {
 
         const previousActivityId =
             report.activity_id;
+
 
         const previousReportProgress =
             report.reported_progress;
@@ -359,7 +510,8 @@ router.put("/:id", async (req, res) => {
                         RETURNING *;
                     `,
                     [
-                        verified_by || "PLANNER",
+                        verified_by ||
+                            "PLANNER",
                         id
                     ]
                 );
@@ -407,7 +559,8 @@ router.put("/:id", async (req, res) => {
                 [
                     report.id,
                     "REJECT",
-                    verified_by || "PLANNER",
+                    verified_by ||
+                        "PLANNER",
                     previousActivityId,
                     previousReportProgress,
                     report.matching_status,
@@ -427,7 +580,10 @@ router.put("/:id", async (req, res) => {
             );
 
 
-            await client.query("COMMIT");
+            await client.query(
+                "COMMIT"
+            );
+
 
             return res.json({
                 success: true,
@@ -436,6 +592,182 @@ router.put("/:id", async (req, res) => {
                 data: {
                     field_report:
                         updateReport.rows[0]
+                }
+            });
+        }
+
+
+        /*
+        =================================================
+        APPROVE WITHOUT ACTIVITY
+        =================================================
+
+        Used when an UNMATCHED report is approved by
+        the planner but no schedule activity is selected.
+
+        The field report becomes VERIFIED.
+
+        No activity is updated.
+        =================================================
+        */
+
+        if (
+            action === "APPROVE" &&
+            !activity_id
+        ) {
+
+            /*
+            ------------------------------------------------
+            Update edited progress first if supplied
+            ------------------------------------------------
+            */
+
+            if (
+                updatedProgress !== null
+            ) {
+
+                await client.query(
+                    `
+                        UPDATE field_reports
+                        SET
+                            reported_progress = $1,
+                            updated_at = NOW()
+                        WHERE id = $2;
+                    `,
+                    [
+                        updatedProgress,
+                        id
+                    ]
+                );
+            }
+
+
+            /*
+            ------------------------------------------------
+            Verify report without activity
+            ------------------------------------------------
+            */
+
+            const updateReport =
+                await client.query(
+                    `
+                        UPDATE field_reports
+                        SET
+                            activity_id = NULL,
+                            match_confidence = COALESCE(
+                                match_confidence,
+                                0
+                            ),
+                            matching_status = 'VERIFIED',
+                            verified_at = NOW(),
+                            verified_by = $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                        RETURNING *;
+                    `,
+                    [
+                        verified_by ||
+                            "PLANNER",
+                        id
+                    ]
+                );
+
+
+            /*
+            ------------------------------------------------
+            Audit unmatched approval
+            ------------------------------------------------
+            */
+
+            await client.query(
+                `
+                    INSERT INTO audit_logs
+                    (
+                        field_report_id,
+                        activity_id,
+                        action,
+                        performed_by,
+                        performed_at,
+                        previous_activity_id,
+                        new_activity_id,
+                        previous_progress,
+                        new_progress,
+                        previous_status,
+                        new_status,
+                        metadata
+                    )
+                    VALUES
+                    (
+                        $1,
+                        NULL,
+                        'APPROVE',
+                        $2,
+                        NOW(),
+                        $3,
+                        NULL,
+                        $4,
+                        $5,
+                        $6,
+                        'VERIFIED',
+                        $7
+                    );
+                `,
+                [
+                    report.id,
+
+                    verified_by ||
+                        "PLANNER",
+
+                    previousActivityId,
+
+                    previousReportProgress,
+
+                    updatedProgress !== null
+                        ? updatedProgress
+                        : previousReportProgress,
+
+                    report.matching_status,
+
+                    JSON.stringify({
+                        report_code:
+                            report.report_code,
+
+                        report_date:
+                            report.report_date,
+
+                        previous_confidence:
+                            report.match_confidence,
+
+                        source_type:
+                            report.source_type,
+
+                        activity_id:
+                            null,
+
+                        note:
+                            "Approved without activity match"
+                    })
+                ]
+            );
+
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            return res.json({
+                success: true,
+
+                message:
+                    "Field report approved without activity match",
+
+                data: {
+                    field_report:
+                        updateReport.rows[0],
+
+                    activity:
+                        null
                 }
             });
         }
@@ -460,7 +792,11 @@ router.put("/:id", async (req, res) => {
         let newConfidence =
             report.match_confidence;
 
-        if (action === "CHANGE_MATCH") {
+
+        if (
+            action === "CHANGE_MATCH"
+        ) {
+
             newConfidence = 100;
         }
 
@@ -472,7 +808,9 @@ router.put("/:id", async (req, res) => {
         ------------------------------------------------
         */
 
-        if (updatedProgress !== null) {
+        if (
+            updatedProgress !== null
+        ) {
 
             await client.query(
                 `
@@ -513,7 +851,8 @@ router.put("/:id", async (req, res) => {
                 [
                     newActivityId,
                     newConfidence,
-                    verified_by || "PLANNER",
+                    verified_by ||
+                        "PLANNER",
                     id
                 ]
             );
@@ -574,15 +913,21 @@ router.put("/:id", async (req, res) => {
             );
 
 
-        if (activityResult.rows.length === 0) {
+        if (
+            activityResult.rows.length === 0
+        ) {
 
-            await client.query("ROLLBACK");
+            await client.query(
+                "ROLLBACK"
+            );
 
             return res.status(400).json({
                 success: false,
-                message: "Activity not found"
+                message:
+                    "Activity not found"
             });
         }
+
 
         const activity =
             activityResult.rows[0];
@@ -597,6 +942,7 @@ router.put("/:id", async (req, res) => {
         const previousProgress =
             activity.actual_progress;
 
+
         const previousStatus =
             activity.status;
 
@@ -610,11 +956,14 @@ router.put("/:id", async (req, res) => {
         let newActualProgress =
             activity.actual_progress;
 
+
         let newActualStart =
             activity.actual_start;
 
+
         let newActualFinish =
             activity.actual_finish;
+
 
         let newStatus =
             activity.status;
@@ -626,10 +975,13 @@ router.put("/:id", async (req, res) => {
         ------------------------------------------------
         */
 
-        if (latestProgressResult.rows.length > 0) {
+        if (
+            latestProgressResult.rows.length > 0
+        ) {
 
             const latestReport =
                 latestProgressResult.rows[0];
+
 
             newActualProgress =
                 latestReport.reported_progress;
@@ -641,6 +993,7 @@ router.put("/:id", async (req, res) => {
             */
 
             if (!newActualStart) {
+
                 newActualStart =
                     latestReport.report_date;
             }
@@ -651,9 +1004,12 @@ router.put("/:id", async (req, res) => {
             */
 
             if (
-                Number(newActualProgress) >= 100 &&
+                Number(
+                    newActualProgress
+                ) >= 100 &&
                 !newActualFinish
             ) {
+
                 newActualFinish =
                     latestReport.report_date;
             }
@@ -664,16 +1020,22 @@ router.put("/:id", async (req, res) => {
             */
 
             if (
-                Number(newActualProgress) >= 100
+                Number(
+                    newActualProgress
+                ) >= 100
             ) {
 
-                newStatus = "COMPLETED";
+                newStatus =
+                    "COMPLETED";
 
             } else if (
-                Number(newActualProgress) > 0
+                Number(
+                    newActualProgress
+                ) > 0
             ) {
 
-                newStatus = "IN_PROGRESS";
+                newStatus =
+                    "IN_PROGRESS";
             }
         }
 
@@ -750,7 +1112,8 @@ router.put("/:id", async (req, res) => {
                 report.id,
                 newActivityId,
                 action,
-                verified_by || "PLANNER",
+                verified_by ||
+                    "PLANNER",
 
                 previousActivityId,
                 newActivityId,
@@ -802,11 +1165,14 @@ router.put("/:id", async (req, res) => {
         ------------------------------------------------
         */
 
-        await client.query("COMMIT");
+        await client.query(
+            "COMMIT"
+        );
 
 
         res.json({
             success: true,
+
             message:
                 "Verification, activity update and audit logging completed successfully",
 
@@ -822,7 +1188,9 @@ router.put("/:id", async (req, res) => {
 
     } catch (error) {
 
-        await client.query("ROLLBACK");
+        await client.query(
+            "ROLLBACK"
+        );
 
         console.error(
             "Verification update error:",

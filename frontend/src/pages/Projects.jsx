@@ -5,6 +5,7 @@ const API_BASE =
 
 const initialProjects = [
   {
+    dbId: null,
     id: "OIL-001",
     name: "Gas Processing Plant",
     location: "Duliajan",
@@ -175,6 +176,7 @@ const Projects = () => {
       }
 
       const databaseProjects = result.data.map((project) => ({
+          dbId: project.id,
         id: project.project_code,
         name: project.name,
         location: project.location,
@@ -393,6 +395,15 @@ const Projects = () => {
           l5.children.length > 0
       )
   }
+
+  const openProject = (project) => {
+  localStorage.setItem(
+    "bharatforge_active_project",
+    JSON.stringify(project)
+  )
+
+  window.location.href = "/"
+}
 
   /*
     Project search
@@ -795,6 +806,7 @@ const Projects = () => {
           filteredProjects.map((project) => (
             <div
               key={project.id}
+                onClick={() => openProject(project)}
               className="
                 overflow-hidden
                 rounded-xl
@@ -802,6 +814,10 @@ const Projects = () => {
                 bg-[#151b24]
                 p-4
                 sm:p-6
+                cursor-pointer
+                transition
+                hover:border-blue-500/50
+                hover:bg-[#18202b]
               "
             >
 

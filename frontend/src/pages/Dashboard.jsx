@@ -12,10 +12,10 @@ const inputSources = [
     formats: "XLSX / XLS",
   },
   {
-    title: "DPR / Field Reports",
-    description: "Upload daily site execution reports",
-    formats: "JPG / PNG / WEBP",
-  },
+  title: "DPR / Field Reports",
+  description: "Upload daily site execution reports",
+  formats: "JPG / PNG / WEBP / PDF / XLSX / XLS / CSV",
+},
   {
     title: "Progress & Materials",
     description: "Import progress and material data",
@@ -94,6 +94,7 @@ const Dashboard = () => {
   const [summary, setSummary] = useState(null)
   const [activities, setActivities] = useState([])
   const [reports, setReports] = useState([])
+  const [activeProject, setActiveProject] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -129,9 +130,9 @@ const Dashboard = () => {
     }
 
     if (sourceType === "DPR / Field Reports") {
-      uploadDprImage(file)
-      return
-    }
+  uploadDpr(file)
+  return
+}
 
     setUploadedFiles((prev) => ({
       ...prev,
@@ -229,109 +230,115 @@ const Dashboard = () => {
     }
   }
 
-  async function uploadDprImage(file) {
-    if (!file) return
+  const uploadDpr = async (file) => {
+  if (!file) return
 
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/jpg",
-    ]
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/jpg",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "text/csv",
+  ]
 
-    if (!allowedTypes.includes(file.type)) {
-      alert("Please upload a JPG, PNG or WEBP DPR image.")
-      return
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert("DPR image must be smaller than 10 MB.")
-      return
-    }
-
-    try {
-      setError("")
-
-      const formData = new FormData()
-      formData.append("file", file)
-
-      console.log("Uploading DPR image:", file.name)
-
-      const response = await fetch(
-        `${API_BASE}/ingestion/image`,
-        {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        }
-      )
-
-      const data = await response.json()
-
-      console.log("DPR AI RESPONSE:", data)
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to process DPR image"
-        )
-      }
-
-      setUploadedFiles((prev) => ({
-        ...prev,
-        "DPR / Field Reports": file.name,
-      }))
-
-      setUploadType(null)
-
-      await loadDashboard()
-
-      const extracted = data.extracted || {}
-      const matching = data.matching || {}
-      const matchedActivity =
-        matching.activity || data.activity || null
-
-      alert(
-        `DPR PROCESSED SUCCESSFULLY\n\n` +
-        `Discipline: ${extracted.discipline || "Not Found"}\n` +
-        `Progress: ${
-          extracted.reportedProgress !== null &&
-          extracted.reportedProgress !== undefined
-            ? extracted.reportedProgress + "%"
-            : "Not Found"
-        }\n` +
-        `Status: ${extracted.status || "Not Found"}\n\n` +
-        `Activity Code: ${
-          matchedActivity?.activity_code ||
-          matchedActivity?.activityCode ||
-          "Unmatched"
-        }\n` +
-        `Activity Name: ${
-          matchedActivity?.name ||
-          "Unmatched Activity"
-        }\n` +
-        `Match Confidence: ${
-          matching.confidence ?? 0
-        }%\n` +
-        `Extraction Confidence: ${
-          extracted.extractionConfidence ?? "N/A"
-        }%\n\n` +
-        `Matching Status: ${
-          matching.status || "UNKNOWN"
-        }\n\n` +
-        `The report has been saved to PostgreSQL.`
-      )
-    } catch (err) {
-      console.error("DPR upload error:", err)
-
-      setError(
-        err.message || "Failed to process DPR image"
-      )
-
-      alert(
-        `DPR processing failed:\n\n${err.message}`
-      )
-    }
+  if (!allowedTypes.includes(file.type)) {
+    alert(
+      "Please upload a JPG, PNG, WEBP, PDF, XLSX, XLS or CSV DPR."
+    )
+    return
   }
+
+  if (file.size > 10 * 1024 * 1024) {
+    alert("DPR file must be smaller than 10 MB.")
+    return
+  }
+
+  try {
+    setError("")
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    console.log("Uploading DPR:", file.name, file.type)
+
+    const response = await fetch(
+      `${API_BASE}/ingestion/dpr`,
+      {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      }
+    )
+
+    const data = await response.json()
+
+    console.log("DPR AI RESPONSE:", data)
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.message || "Failed to process DPR"
+      )
+    }
+
+    setUploadedFiles((prev) => ({
+      ...prev,
+      "DPR / Field Reports": file.name,
+    }))
+
+    setUploadType(null)
+
+    await loadDashboard()
+
+    const extracted = data.extracted || {}
+    const matching = data.matching || {}
+    const matchedActivity =
+      matching.activity || data.activity || null
+
+    alert(
+      `DPR PROCESSED SUCCESSFULLY\n\n` +
+      `Discipline: ${extracted.discipline || "Not Found"}\n` +
+      `Progress: ${
+        extracted.reportedProgress !== null &&
+        extracted.reportedProgress !== undefined
+          ? extracted.reportedProgress + "%"
+          : "Not Found"
+      }\n` +
+      `Status: ${extracted.status || "Not Found"}\n\n` +
+      `Activity Code: ${
+        matchedActivity?.activity_code ||
+        matchedActivity?.activityCode ||
+        "Unmatched"
+      }\n` +
+      `Activity Name: ${
+        matchedActivity?.name ||
+        "Unmatched Activity"
+      }\n` +
+      `Match Confidence: ${
+        matching.confidence ?? 0
+      }%\n` +
+      `Extraction Confidence: ${
+        extracted.extractionConfidence ?? "N/A"
+      }%\n\n` +
+      `Matching Status: ${
+        matching.status || "UNKNOWN"
+      }\n\n` +
+      `The report has been saved to PostgreSQL.`
+    )
+  } catch (err) {
+    console.error("DPR upload error:", err)
+
+    setError(
+      err.message || "Failed to process DPR"
+    )
+
+    alert(
+      `DPR processing failed:\n\n${err.message}`
+    )
+  }
+}
 
   /*
   ============================================================
@@ -340,8 +347,25 @@ const Dashboard = () => {
   */
 
   useEffect(() => {
-    loadDashboard()
-  }, [])
+  const storedProject = localStorage.getItem(
+    "bharatforge_active_project"
+  )
+
+  if (storedProject) {
+    try {
+      setActiveProject(JSON.parse(storedProject))
+    } catch (error) {
+      console.error(
+        "Failed to load active project:",
+        error
+      )
+    }
+  }
+}, [])
+
+useEffect(() => {
+  loadDashboard()
+}, [activeProject?.dbId])
 
   async function loadDashboard() {
     try {
@@ -354,7 +378,11 @@ const Dashboard = () => {
         reportsResponse,
       ] = await Promise.all([
         fetch(
-          `${API_BASE}/analytics/project-summary`
+          `${API_BASE}/analytics/project-summary${
+            activeProject?.dbId
+              ? `?project_id=${activeProject.dbId}`
+              : ""
+          }`
         ).then(async (response) => {
           const data = await response.json()
 
@@ -368,9 +396,13 @@ const Dashboard = () => {
           return data
         }),
 
-        fetch(
-          `${API_BASE}/analytics/activity-risk`
-        ).then(async (response) => {
+       fetch(
+        `${API_BASE}/analytics/activity-risk${
+          activeProject?.dbId
+            ? `?project_id=${activeProject.dbId}`
+            : ""
+        }`
+      ).then(async (response) => {
           const data = await response.json()
 
           if (!response.ok || !data.success) {
@@ -562,7 +594,7 @@ const Dashboard = () => {
             </p>
 
             <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
-              OIL — Gas Processing Plant
+              {activeProject?.name || "Select a project"}
             </h2>
 
             <p className="text-gray-400 mt-2">
@@ -603,7 +635,7 @@ const Dashboard = () => {
             </p>
 
             <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
-              OIL — Gas Processing Plant
+              {activeProject?.name || "Select a project"}
             </h2>
 
             <p className="text-gray-400 mt-2">
@@ -659,11 +691,11 @@ const Dashboard = () => {
           </p>
 
           <h2 className="text-xl sm:text-2xl font-semibold text-white mt-1 break-words">
-            Development of Approach Road (~700 m), Well Plinth, Perimeter Dwarf Wall, Road over Plinth and CC/RCC Foundation for E-2000 VFD Rig at Tengakhat & Chabua, Central Field-West, Dibrugarh.
+            {activeProject?.name || "Select a project"}
           </h2>
 
           <p className="text-gray-400 mt-2">
-            CDC2630P27
+            {activeProject?.id || "No project selected"}
           </p>
 
         </div>
@@ -1549,7 +1581,7 @@ const Dashboard = () => {
             ? "Import Primavera / P6 schedule"
             : uploadType ===
               "DPR / Field Reports"
-            ? ".jpg,.jpeg,.png,.webp"
+            ? ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.csv"
             : uploadType ===
               "Progress & Materials"
             ? "Import progress and material data"
@@ -1576,7 +1608,7 @@ const Dashboard = () => {
           }
 
           if (uploadType === "DPR / Field Reports") {
-            uploadDprImage(file)
+            uploadDpr(file)
             return
           }
 

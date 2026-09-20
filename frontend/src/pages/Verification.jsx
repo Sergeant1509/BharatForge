@@ -193,9 +193,14 @@ const Verification = () => {
 
       let selectedId = activityId
 
+
+      /*
+      APPROVE may work without an activity.
+      CHANGE_MATCH still requires one.
+      */
+
       if (
-        (action === "APPROVE" ||
-          action === "CHANGE_MATCH") &&
+        action === "CHANGE_MATCH" &&
         !selectedId
       ) {
 
@@ -206,8 +211,7 @@ const Verification = () => {
 
 
       if (
-        (action === "APPROVE" ||
-          action === "CHANGE_MATCH") &&
+        action === "CHANGE_MATCH" &&
         !selectedId
       ) {
 
@@ -230,9 +234,9 @@ const Verification = () => {
         action,
 
         activity_id:
-          action === "REJECT"
-            ? null
-            : Number(selectedId),
+          selectedId
+            ? Number(selectedId)
+            : null,
 
         verified_by: "PLANNER",
 
@@ -480,7 +484,11 @@ const Verification = () => {
             const currentSelectedActivity =
               selectedActivity[item.id] ||
               item.activity_id ||
-              candidates[0]?.id ||
+              (
+                item.matching_status !== "UNMATCHED"
+                  ? candidates[0]?.id
+                  : null
+              ) ||
               null
 
             const selectedCandidate =
@@ -490,7 +498,12 @@ const Verification = () => {
                   Number(
                     currentSelectedActivity
                   )
-              )
+              ) || null
+
+            const displayCandidate =
+              selectedCandidate ||
+              candidates[0] ||
+              null
 
             const isProcessing =
               processingId === item.id
@@ -692,13 +705,17 @@ const Verification = () => {
                 <div className="mt-5">
 
                   <p className="text-xs text-gray-500">
-                    AI MATCHED ACTIVITY
+
+                    {item.matching_status === "UNMATCHED"
+                      ? "SUGGESTED ACTIVITY"
+                      : "AI MATCHED ACTIVITY"}
+
                   </p>
 
 
                   <div className="mt-2">
 
-                    {selectedCandidate ? (
+                    {displayCandidate ? (
 
                       <div className="bg-[#10151c] border border-[#252d38] rounded-lg p-4">
 
@@ -709,13 +726,13 @@ const Verification = () => {
                             <p className="text-white font-medium">
 
                               {
-                                selectedCandidate.activity_code
+                                displayCandidate.activity_code
                               }
 
                               {" — "}
 
                               {
-                                selectedCandidate.name
+                                displayCandidate.name
                               }
 
                             </p>
@@ -726,7 +743,7 @@ const Verification = () => {
                               Candidate confidence:{" "}
 
                               {
-                                selectedCandidate.confidence
+                                displayCandidate.confidence
                               }%
 
                             </p>
@@ -735,7 +752,11 @@ const Verification = () => {
 
 
                           <span className="text-yellow-400 text-sm">
-                            Review Required
+
+                            {item.matching_status === "UNMATCHED"
+                              ? "Manual Selection Required"
+                              : "Review Required"}
+
                           </span>
 
                         </div>
@@ -878,10 +899,7 @@ const Verification = () => {
 
                   <button
                     type="button"
-                    disabled={
-                      isProcessing ||
-                      candidates.length === 0
-                    }
+                    disabled={isProcessing}
                     onClick={() =>
                       handleVerification(
                         item,
