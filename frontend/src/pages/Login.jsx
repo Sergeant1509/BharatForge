@@ -76,15 +76,15 @@ const Login = () => {
             <div className="flex h-11 w-11 items-center justify-center">
               <span className="text-xl font-bold">
                 <img
-                  src="icon.jpeg"
-                  alt="BharatForge Logo"
+                  src="icon2.png"
+                  alt="InfraForge Logo"
                   className="rounded-xl"
                 />
               </span>
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight">
-              BharatForge
+              InfraForge
             </h1>
 
           </div>
@@ -289,7 +289,7 @@ const Login = () => {
 
 
         <p className="mt-6 text-center text-xs text-gray-600">
-          BharatForge · Project Execution Intelligence
+          InfraForge · Project Execution Intelligence
         </p>
 
       </div>
