@@ -94,8 +94,8 @@ const Signup = () => {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl text-2xl font-black mb-4">
             <img
-              src="icon2.png"
-              alt="InfraForge Logo"
+              src="icon.jpeg"
+              alt="BharatForge Logo"
               className="rounded-xl"
             />
           </div>
@@ -105,7 +105,7 @@ const Signup = () => {
           </h1>
 
           <p className="text-sm text-gray-400 mt-2">
-            Join InfraForge
+            Join BharatForge
           </p>
         </div>
 
@@ -213,7 +213,7 @@ const Signup = () => {
         </div>
 
         <p className="text-center text-xs text-gray-600 mt-6">
-          InfraForge • Execution Intelligence Bridge
+          BharatForge • Execution Intelligence Bridge
         </p>
 
       </div>

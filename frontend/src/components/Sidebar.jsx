@@ -44,14 +44,14 @@ const Sidebar = () => {
 
           <div className="flex h-9 w-9 items-center justify-center rounded-lg">
             <img
-              src="/icon2.png"
+              src="/icon.jpeg"
               className="rounded-xl"
-              alt="InfraForge"
+              alt="BharatForge"
             />
           </div>
 
           <span className="font-semibold text-white">
-            InfraForge
+            BharatForge
           </span>
 
         </div>
@@ -251,16 +251,16 @@ const Sidebar = () => {
 
           <div className="flex h-10 w-10 items-center justify-center rounded-xl">
             <img
-              src="/icon2.png"
+              src="/icon.jpeg"
               className="rounded-xl"
-              alt="InfraForge"
+              alt="BharatForge"
             />
           </div>
 
           <div>
 
             <p className="font-semibold text-white">
-              InfraForge
+              BharatForge
             </p>
 
             <p className="text-[10px] text-gray-500">
